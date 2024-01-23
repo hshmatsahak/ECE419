@@ -89,30 +89,40 @@ public class KVClient implements IKVClient {
                     perror("Key Length > 20 Bytes");
                     break;
                 }
-                String val;
-                if (token.length == 2)
-                    val = null;
-                else {
-                    StringBuilder sb = new StringBuilder();
+                if (token.length == 2) {
+                    try {
+                        KVMessage kvMessage = kvStore.put(key, null);
+                        System.out.println("Deleting <key>: " + kvMessage.getKey() + " ...");
+                        if (kvMessage.getStatus() == KVMessage.StatusType.DELETE_ERROR)
+                            perror("delete Error");
+                        else {
+                            System.out.println("Corresponding <value>: " + kvMessage.getValue());
+                            System.out.println("delete Status: " + kvMessage.getStatus());
+                        }
+                    } catch (Exception e) {
+                        perror("delete Failed");
+                        disconnect();
+                    }
+                } else {
+                    StringBuilder val = new StringBuilder();
                     for (int i=2; i<token.length; ++i) {
-                        sb.append(token[i]);
+                        val.append(token[i]);
                         if (i != token.length - 1)
-                            sb.append(" ");
+                            val.append(" ");
                     }
-                    val = sb.toString();
-                }
-                try {
-                    KVMessage kvMessage = kvStore.put(key, val);
-                    System.out.println("put <key>: " + kvMessage.getKey() + " ...");
-                    if (kvMessage.getStatus() == KVMessage.StatusType.PUT_ERROR)
-                        perror("put Error");
-                    else {
-                        System.out.println("Corresponding <value>: " + kvMessage.getValue());
-                        System.out.println("put Status: " + kvMessage.getStatus());
+                    try {
+                        KVMessage kvMessage = kvStore.put(key, val.toString());
+                        System.out.println("putting <key>: " + kvMessage.getKey() + " ...");
+                        if (kvMessage.getStatus() == KVMessage.StatusType.PUT_ERROR)
+                            perror("put Error");
+                        else {
+                            System.out.println("Corresponding <value>: " + kvMessage.getValue());
+                            System.out.println("put Status: " + kvMessage.getStatus());
+                        }
+                    } catch (Exception e) {
+                        perror("put Failed");
+                        disconnect();
                     }
-                } catch (Exception e) {
-                    perror("put Failed");
-                    disconnect();
                 }
             }
             break;
@@ -126,7 +136,7 @@ public class KVClient implements IKVClient {
             } else {
                 try {
                     KVMessage kvMessage = kvStore.get(token[1]);
-                    System.out.println("get <key>: " + kvMessage.getKey() + " ...");
+                    System.out.println("getting <key>: " + kvMessage.getKey() + " ...");
                     if (kvMessage.getStatus() == KVMessage.StatusType.GET_ERROR)
                         perror("get Error");
                     else {
