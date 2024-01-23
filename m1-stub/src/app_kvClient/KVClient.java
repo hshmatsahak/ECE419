@@ -103,18 +103,84 @@ public class KVClient implements IKVClient {
                 }
                 try {
                     KVMessage kvMessage = kvStore.put(key, val);
-                    if (kvMessage.getStatus().equals(KVMessage.StatusType.PUT_ERROR))
+                    System.out.println("put <key>: " + kvMessage.getKey() + " ...");
+                    if (kvMessage.getStatus() == KVMessage.StatusType.PUT_ERROR)
                         perror("put Error");
                     else {
-                        System.out.println("put <key>: " + kvMessage.getKey());
                         System.out.println("Corresponding <value>: " + kvMessage.getValue());
-                        System.out.println("Status: " + kvMessage.getStatus());
+                        System.out.println("put Status: " + kvMessage.getStatus());
                     }
                 } catch (Exception e) {
                     perror("put Failed");
                     disconnect();
                 }
             }
+            break;
+        case "get":
+            if (token.length != 2) {
+                perror("Invalid Argument Count");
+                System.out.println(PROMPT + "get <key>");
+            } else if (kvStore == null) {
+                perror("Invalid Connection");
+                System.out.println(PROMPT + "connect <addr> <port>");
+            } else {
+                try {
+                    KVMessage kvMessage = kvStore.get(token[1]);
+                    System.out.println("get <key>: " + kvMessage.getKey() + " ...");
+                    if (kvMessage.getStatus() == KVMessage.StatusType.GET_ERROR)
+                        perror("get Error");
+                    else {
+                        System.out.println("Corresponding <value>: " + kvMessage.getValue());
+                        System.out.println("get Status: " + kvMessage.getStatus());
+                    }
+                } catch (Exception e) {
+                    perror("get Failed");
+                    disconnect();
+                }
+            }
+            break;
+        case "logLevel":
+            if (token.length != 2) {
+                perror("Invalid Argument Count");
+                break;
+            }
+            if (token[1].equals(Level.ALL.toString())) {
+                logger.setLevel(Level.ALL);
+                System.out.println(PROMPT + "Log Level: " + Level.ALL.toString());
+            } else if (token[1].equals(Level.DEBUG.toString())) {
+                logger.setLevel(Level.DEBUG);
+                System.out.println(PROMPT + "Log Level: " + Level.DEBUG.toString());
+            } else if (token[1].equals(Level.INFO.toString())) {
+                logger.setLevel(Level.INFO);
+                System.out.println(PROMPT + "Log Level: " + Level.INFO.toString());
+            } else if (token[1].equals(Level.WARN.toString())) {
+                logger.setLevel(Level.WARN);
+                System.out.println(PROMPT + "Log Level: " + Level.WARN.toString());
+            } else if (token[1].equals(Level.ERROR.toString())) {
+                logger.setLevel(Level.ERROR);
+                System.out.println(PROMPT + "Log Level: " + Level.ERROR.toString());
+            } else if (token[1].equals(Level.FATAL.toString())) {
+                logger.setLevel(Level.FATAL);
+                System.out.println(PROMPT + "Log Level: " + Level.FATAL.toString());
+            } else if (token[1].equals(Level.OFF.toString())) {
+                logger.setLevel(Level.OFF);
+                System.out.println(PROMPT + "Log Level: " + Level.OFF.toString());
+            } else {
+                perror("Unknown Log Level");
+                System.out.println(PROMPT + "Available Log Levels:");
+                System.out.println(PROMPT + "ALL | DEBUG | INFO | WARN | ERROR | FATAL | OFF");
+            }
+            break;
+        case "help":
+            break;
+        case "quit":
+            if (token.length != 1) {
+                perror("Invalid Argument Count");
+                break;
+            }
+            quit = true;
+            disconnect();
+            System.out.println(PROMPT + "Exit");
             break;
         default:
             perror("Invalid Command");
@@ -146,9 +212,8 @@ public class KVClient implements IKVClient {
     }
 
     @Override
-    public KVCommInterface getStore(){
-        // TODO Auto-generated method stub
-        return null;
+    public KVCommInterface getStore() {
+        return kvStore;
     }
 
     private void perror(String str) {
