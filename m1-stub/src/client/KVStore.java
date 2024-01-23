@@ -1,6 +1,6 @@
 package client;
 
-import shared.messages.KVMessage;
+import shared.messages.Message;
 
 public class KVStore implements KVCommInterface {
 	/**
@@ -23,13 +23,13 @@ public class KVStore implements KVCommInterface {
 	}
 
 	@Override
-	public KVMessage put(String key, String value) throws Exception {
+	public Message put(String key, String value) throws Exception {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	public KVMessage get(String key) throws Exception {
+	public Message get(String key) throws Exception {
 		// TODO Auto-generated method stub
 		return null;
 	}

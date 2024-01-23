@@ -11,7 +11,8 @@ import org.apache.log4j.Level;
 import logger.LogSetup;
 import client.KVCommInterface;
 import client.KVStore;
-import shared.messages.KVMessage;
+import shared.messages.Message;
+import shared.messages.KVMessage.StatusType;
 
 public class KVClient implements IKVClient {
 
@@ -91,9 +92,9 @@ public class KVClient implements IKVClient {
                 }
                 if (token.length == 2) {
                     try {
-                        KVMessage kvMessage = kvStore.put(key, null);
+                        Message kvMessage = kvStore.put(key, null);
                         System.out.println("Deleting <key>: " + kvMessage.getKey() + " ...");
-                        if (kvMessage.getStatus() == KVMessage.StatusType.DELETE_ERROR)
+                        if (kvMessage.getStatus() == StatusType.DELETE_ERROR)
                             perror("delete Error");
                         else {
                             System.out.println("Corresponding <value>: " + kvMessage.getValue());
@@ -111,9 +112,9 @@ public class KVClient implements IKVClient {
                             val.append(" ");
                     }
                     try {
-                        KVMessage kvMessage = kvStore.put(key, val.toString());
-                        System.out.println("putting <key>: " + kvMessage.getKey() + " ...");
-                        if (kvMessage.getStatus() == KVMessage.StatusType.PUT_ERROR)
+                        Message kvMessage = kvStore.put(key, val.toString());
+                        System.out.println("Inserting <key>: " + kvMessage.getKey() + " ...");
+                        if (kvMessage.getStatus() == StatusType.PUT_ERROR)
                             perror("put Error");
                         else {
                             System.out.println("Corresponding <value>: " + kvMessage.getValue());
@@ -135,9 +136,9 @@ public class KVClient implements IKVClient {
                 System.out.println(PROMPT + "connect <addr> <port>");
             } else {
                 try {
-                    KVMessage kvMessage = kvStore.get(token[1]);
-                    System.out.println("getting <key>: " + kvMessage.getKey() + " ...");
-                    if (kvMessage.getStatus() == KVMessage.StatusType.GET_ERROR)
+                    Message kvMessage = kvStore.get(token[1]);
+                    System.out.println("Retrieving <key>: " + kvMessage.getKey() + " ...");
+                    if (kvMessage.getStatus() == StatusType.GET_ERROR)
                         perror("get Error");
                     else {
                         System.out.println("Corresponding <value>: " + kvMessage.getValue());
