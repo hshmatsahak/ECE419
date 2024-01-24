@@ -22,7 +22,7 @@ public class KVClient implements IKVClient {
     private BufferedReader stdin;
     private String serverAddr;
     private int serverPort;
-    private KVStore kvStore = null;
+    private KVStore kvStore;
 
     public static void main(String[] args) {
         try {
@@ -62,11 +62,12 @@ public class KVClient implements IKVClient {
                 serverAddr = token[1];
                 serverPort = Integer.parseInt(token[2]);
                 newConnection(serverAddr, serverPort);
+                System.out.println(PROMPT + "Connection Established!");
             } catch (NumberFormatException nfe) {
                 perror("Invalid Server Port");
             } catch (UnknownHostException e) {
                 perror("Invalid Server Address");
-            } catch (Exception e) {
+            } catch (IOException e) {
                 perror("Connection Establishment Failed");
             }
             break;
@@ -81,7 +82,7 @@ public class KVClient implements IKVClient {
             if (token.length == 1) {
                 perror("Invalid Argument Count");
                 System.out.println(PROMPT + "put <key> <val>");
-            } else if (kvStore == null) {
+            } else if (kvStore == null || !kvStore.isConnected()) {
                 perror("Invalid Connection");
                 System.out.println(PROMPT + "connect <addr> <port>");
             } else {
@@ -131,7 +132,7 @@ public class KVClient implements IKVClient {
             if (token.length != 2) {
                 perror("Invalid Argument Count");
                 System.out.println(PROMPT + "get <key>");
-            } else if (kvStore == null) {
+            } else if (kvStore == null || !kvStore.isConnected()) {
                 perror("Invalid Connection");
                 System.out.println(PROMPT + "connect <addr> <port>");
             } else {
@@ -200,19 +201,22 @@ public class KVClient implements IKVClient {
     }
 
     @Override
-    public void newConnection(String hostname, int port) throws IOException, UnknownHostException {
+    public void newConnection(String hostname, int port) throws UnknownHostException, IOException {
         if (kvStore != null) {
             kvStore.disconnect();
             System.out.println(PROMPT + "Disconnected Existing Host...");
         }
         kvStore = new KVStore(hostname, port);
-        try {
-            System.out.println(PROMPT + "Establishing Connection...");
-            kvStore.connect();
-            System.out.println(PROMPT + "Connection Established!");
-        } catch (Exception e) {
-            perror("Connection Establishment Failed");
-        }
+        System.out.println(PROMPT + "Establishing Connection...");
+        kvStore.connect();
+        kvStore.addClient(this);
+//        try {
+//            System.out.println(PROMPT + "Establishing Connection...");
+//            kvStore.connect();
+//            System.out.println(PROMPT + "Connection Established!");
+//        } catch (Exception e) {
+//            perror("Connection Establishment Failed");
+//        }
     }
     
     private void disconnect() {
