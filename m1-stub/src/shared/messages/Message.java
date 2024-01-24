@@ -4,9 +4,16 @@ import java.io.Serializable;
 
 public class Message implements KVMessage, Serializable {
 
+    private static final long serialVersionUID = 8125878201977457676L;
+    private StatusType type;
     private String key;
     private String val;
-    private StatusType status;
+
+    public Message(StatusType t, String k, String v) {
+        type = t;
+        key = k;
+        val = v;
+    }
 
     @Override
     public String getKey() {
@@ -20,6 +27,6 @@ public class Message implements KVMessage, Serializable {
 
     @Override
     public StatusType getStatus() {
-        return status;
+        return type;
     }
 }
