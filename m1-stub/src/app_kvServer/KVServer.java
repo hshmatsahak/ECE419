@@ -1,6 +1,15 @@
 package app_kvServer;
 
-public class KVServer implements IKVServer {
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.io.IOException;
+import java.net.BindException;
+
+public class KVServer extends Thread implements IKVServer {
+
+	private int serverPort;
+	private boolean online;
+	private ServerSocket serverSocket;
 	/**
 	 * Start KV Server at given port
 	 * @param port given port for storage server to operate
@@ -12,7 +21,22 @@ public class KVServer implements IKVServer {
 	 *           and "LFU".
 	 */
 	public KVServer(int port, int cacheSize, String strategy) {
-		// TODO Auto-generated method stub
+		serverPort = port;
+	}
+
+	public static void main(String[] args) {
+		if (args.length != 1) {
+			System.out.println("KVServer> Error: Invalid Argument Count!");
+			System.exit(1);
+		} else {
+			try {
+				int serverPort = Integer.parseInt(args[0]);
+				new KVServer(serverPort, -1, CacheStrategy.None.toString()).start();
+			} catch (NumberFormatException ioe) {
+				System.out.println("KVServer> Error: Invalid Server Port!");
+				System.exit(1);
+			}
+		}
 	}
 	
 	@Override
@@ -73,8 +97,23 @@ public class KVServer implements IKVServer {
 	}
 
 	@Override
-    public void run(){
-		// TODO Auto-generated method stub
+    public void run() {
+		online = initializeServer();
+		if (serverSocket == null) {
+			System.out.println("KVServer> Error: Connection Lost!");
+			return;
+		}
+		while (online) {
+			try {
+				Socket clientSocket = serverSocket.accept();
+				ClientConnection clientConnection = new ClientConnection(clientSocket);
+				new Thread(clientConnection).start();
+			} catch (IOException e) {
+//				logger.error("Error: New Client Connection Establishment Failed!");
+			}
+		}
+		System.out.println("Closing Server...");
+//		logger.info("Server Closed");
 	}
 
 	@Override
@@ -85,5 +124,19 @@ public class KVServer implements IKVServer {
 	@Override
     public void close(){
 		// TODO Auto-generated method stub
+	}
+
+	private boolean initializeServer() {
+		System.out.println("KVServer> Establishing Connection...");
+		try {
+			serverSocket = new ServerSocket(serverPort);
+			System.out.println("KVServer> Connection Established! Port " + serverPort);
+			return true;
+		} catch (IOException e) {
+			System.out.println("KVServer> Error: Socket Bind Failed!");
+			if (e instanceof BindException)
+				System.out.println("KVServer> Port " + serverPort + " Unavailable!");
+			return false;
+		}
 	}
 }

@@ -30,7 +30,7 @@ public class KVClient implements IKVClient {
             KVClient kvClient = new KVClient();
             kvClient.run();
         } catch (IOException e) {
-            System.out.println(PROMPT + "Error: LogSetup!");
+            perror(PROMPT + "LogSetup");
             e.printStackTrace();
             System.exit(1);
         }
@@ -92,14 +92,14 @@ public class KVClient implements IKVClient {
                     break;
                 }
                 if (token.length == 2) {
+                    System.out.println("Deleting <key>: " + key + " ...");
                     try {
                         Message kvMessage = kvStore.put(key, null);
-                        System.out.println("Deleting <key>: " + kvMessage.getKey() + " ...");
                         if (kvMessage.getStatus() == StatusType.DELETE_ERROR)
                             perror("delete Error");
                         else {
-                            System.out.println("Corresponding <value>: " + kvMessage.getValue());
                             System.out.println("delete Status: " + kvMessage.getStatus());
+                            System.out.println("Deleted <key>: " + kvMessage.getKey());
                         }
                     } catch (Exception e) {
                         perror("delete Failed");
@@ -112,14 +112,15 @@ public class KVClient implements IKVClient {
                         if (i != token.length - 1)
                             val.append(" ");
                     }
+                    System.out.println("Inserting...");
                     try {
                         Message kvMessage = kvStore.put(key, val.toString());
-                        System.out.println("Inserting <key>: " + kvMessage.getKey() + " ...");
                         if (kvMessage.getStatus() == StatusType.PUT_ERROR)
                             perror("put Error");
                         else {
-                            System.out.println("Corresponding <value>: " + kvMessage.getValue());
                             System.out.println("put Status: " + kvMessage.getStatus());
+                            System.out.println("Inserted <key>: " + kvMessage.getKey());
+                            System.out.println("Corresponding <value>: " + kvMessage.getValue());
                         }
                     } catch (Exception e) {
                         perror("put Failed");
@@ -136,11 +137,11 @@ public class KVClient implements IKVClient {
                 perror("Invalid Connection");
                 System.out.println(PROMPT + "connect <addr> <port>");
             } else {
+                System.out.println("Retrieving <key>: " + token[1] + " ...");
                 try {
                     Message kvMessage = kvStore.get(token[1]);
-                    System.out.println("Retrieving <key>: " + kvMessage.getKey() + " ...");
                     if (kvMessage.getStatus() == StatusType.GET_ERROR)
-                        perror("get Error");
+                        System.out.println("key " + kvMessage.getKey() + " Does Not Exist!");
                     else {
                         System.out.println("Corresponding <value>: " + kvMessage.getValue());
                         System.out.println("get Status: " + kvMessage.getStatus());
@@ -231,7 +232,7 @@ public class KVClient implements IKVClient {
         return kvStore;
     }
 
-    private void perror(String str) {
+    public static void perror(String str) {
         System.out.println(PROMPT + "Error: " + str + "!");
     }
 }

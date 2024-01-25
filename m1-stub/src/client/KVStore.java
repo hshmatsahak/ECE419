@@ -2,12 +2,15 @@ package client;
 
 import java.net.Socket;
 import java.util.Set;
+import java.io.ObjectOutputStream;
+import java.io.ObjectInputStream;
 import java.net.UnknownHostException;
 import java.io.IOException;
 import java.util.HashSet;
 
 import app_kvClient.KVClient;
 import shared.messages.Message;
+import shared.messages.KVMessage.StatusType;
 
 public class KVStore implements KVCommInterface {
 
@@ -16,6 +19,8 @@ public class KVStore implements KVCommInterface {
 	private Socket clientSocket;
 	private Set<KVClient> clients;
 	private boolean connected = false;
+	private ObjectOutputStream objectOutputStream;
+	private ObjectInputStream objectInputStream;
 
 	/**
 	 * Initialize KVStore with address and port of KVServer
@@ -32,6 +37,8 @@ public class KVStore implements KVCommInterface {
 		clientSocket = new Socket(serverAddr, serverPort);
 		clients = new HashSet<KVClient>();
 		connected = true;
+		objectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
+		objectInputStream = new ObjectInputStream(clientSocket.getInputStream());
 	}
 
 	@Override
@@ -41,8 +48,9 @@ public class KVStore implements KVCommInterface {
 
 	@Override
 	public Message put(String key, String value) throws Exception {
-		// TODO Auto-generated method stub
-		return null;
+		Message clientMessage = new Message(StatusType.PUT, key, value);
+		objectOutputStream.writeObject(clientMessage);
+		return (Message) objectInputStream.readObject();
 	}
 
 	@Override
