@@ -16,7 +16,7 @@ import shared.messages.KVMessage.StatusType;
 
 public class KVClient implements IKVClient {
 
-    private static Logger logger = Logger.getRootLogger();
+    private static final Logger logger = Logger.getRootLogger();
     private static final String PROMPT = "KVClient> ";
     private boolean quit = false;
     private BufferedReader stdin;
@@ -62,21 +62,26 @@ public class KVClient implements IKVClient {
                 serverAddr = token[1];
                 serverPort = Integer.parseInt(token[2]);
                 newConnection(serverAddr, serverPort);
-                System.out.println(PROMPT + "Connection Established!");
             } catch (NumberFormatException nfe) {
                 perror("Invalid Server Port");
             } catch (UnknownHostException e) {
                 perror("Invalid Server Address");
+                disconnect();
             } catch (IOException e) {
                 perror("Connection Establishment Failed");
+                disconnect();
             }
             break;
         case "disconnect":
-            if (token.length != 1) {
+            if (token.length != 1)
                 perror("Invalid Argument Count");
-                break;
+            else if (kvStore == null)
+                System.out.println(PROMPT + "No Existing Connection");
+            else {
+                System.out.print(PROMPT + "Disconnecting... ");
+                disconnect();
+                System.out.println(PROMPT + "Done!");
             }
-            disconnect();
             break;
         case "put":
             if (token.length == 1) {
@@ -210,6 +215,7 @@ public class KVClient implements IKVClient {
         kvStore = new KVStore(hostname, port);
         System.out.println(PROMPT + "Establishing Connection...");
         kvStore.connect();
+        System.out.println(PROMPT + "Connection Established!");
         kvStore.addClient(this);
 //        try {
 //            System.out.println(PROMPT + "Establishing Connection...");

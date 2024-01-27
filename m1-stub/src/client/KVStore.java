@@ -17,10 +17,10 @@ public class KVStore implements KVCommInterface {
 	private final String serverAddr;
 	private final int serverPort;
 	private Socket clientSocket;
-	private Set<KVClient> clients;
-	private boolean connected = false;
 	private ObjectOutputStream objectOutputStream;
 	private ObjectInputStream objectInputStream;
+	private Set<KVClient> clients;
+	private boolean connected = false;
 
 	/**
 	 * Initialize KVStore with address and port of KVServer
@@ -35,28 +35,34 @@ public class KVStore implements KVCommInterface {
 	@Override
 	public void connect() throws UnknownHostException, IOException {
 		clientSocket = new Socket(serverAddr, serverPort);
-		clients = new HashSet<KVClient>();
-		connected = true;
 		objectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
 		objectInputStream = new ObjectInputStream(clientSocket.getInputStream());
+		clients = new HashSet<KVClient>();
+		connected = true;
 	}
 
 	@Override
 	public void disconnect() {
-		// TODO Auto-generated method stub
+		try {
+			if (objectOutputStream != null)
+				objectOutputStream.close();
+			if (objectInputStream != null)
+				objectInputStream.close();
+			if (clientSocket != null)
+				clientSocket.close();
+		} catch (IOException ignored) {}
 	}
 
 	@Override
 	public Message put(String key, String value) throws Exception {
-		Message clientMessage = new Message(StatusType.PUT, key, value);
-		objectOutputStream.writeObject(clientMessage);
+		objectOutputStream.writeObject(new Message(StatusType.PUT, key, value));
 		return (Message) objectInputStream.readObject();
 	}
 
 	@Override
 	public Message get(String key) throws Exception {
-		// TODO Auto-generated method stub
-		return null;
+		objectOutputStream.writeObject(new Message(StatusType.GET, key, null));
+		return (Message) objectInputStream.readObject();
 	}
 
 	public void addClient(KVClient client) {

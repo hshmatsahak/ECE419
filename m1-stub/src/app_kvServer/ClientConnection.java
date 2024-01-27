@@ -42,11 +42,12 @@ public class ClientConnection implements Runnable {
 //            logger.error("Error: Connecting... Failed!");
         } finally {
             try {
-                if (clientSocket != null) {
+                if (objectInputStream != null)
                     objectInputStream.close();
+                if (objectOutputStream != null)
                     objectOutputStream.close();
+                if (clientSocket != null)
                     clientSocket.close();
-                }
             } catch (IOException ioe) {
 //                logger.error("Error: Disconnecting... Failed!");
             }
