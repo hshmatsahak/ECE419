@@ -107,6 +107,7 @@ public class KVServer extends Thread implements IKVServer {
 			try {
 				Socket clientSocket = serverSocket.accept();
 				ClientConnection clientConnection = new ClientConnection(clientSocket);
+				clientConnection.addServer(this);
 				new Thread(clientConnection).start();
 			} catch (IOException e) {
 //				logger.error("Error: New Client Connection Establishment Failed!");

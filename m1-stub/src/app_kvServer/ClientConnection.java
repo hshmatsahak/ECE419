@@ -14,12 +14,17 @@ public class ClientConnection implements Runnable {
 
     private static final Logger logger = Logger.getRootLogger();
     private final Socket clientSocket;
-    private boolean connected = true;
+    private KVServer clientServer;
     private ObjectInputStream objectInputStream;
     private ObjectOutputStream objectOutputStream;
+    private boolean connected = true;
 
     public ClientConnection(Socket client) {
         clientSocket = client;
+    }
+
+    public void addServer(KVServer server) {
+        clientServer = server;
     }
 
     public void run() {

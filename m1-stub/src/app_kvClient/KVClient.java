@@ -80,7 +80,7 @@ public class KVClient implements IKVClient {
             else {
                 System.out.print(PROMPT + "Disconnecting... ");
                 disconnect();
-                System.out.println(PROMPT + "Done!");
+                System.out.println("Done!");
             }
             break;
         case "put":
