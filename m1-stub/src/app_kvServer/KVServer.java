@@ -1,6 +1,7 @@
 package app_kvServer;
 
 import java.net.ServerSocket;
+import java.util.concurrent.locks.ReentrantLock;
 import java.net.Socket;
 import java.io.IOException;
 import java.net.BindException;
@@ -10,6 +11,7 @@ public class KVServer extends Thread implements IKVServer {
 	private int serverPort;
 	private boolean online;
 	private ServerSocket serverSocket;
+	final ReentrantLock serverLock = new ReentrantLock();
 	/**
 	 * Start KV Server at given port
 	 * @param port given port for storage server to operate
