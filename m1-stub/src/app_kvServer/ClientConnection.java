@@ -34,7 +34,14 @@ public class ClientConnection implements Runnable {
             while (connected) {
                 try {
                     Message clientMessage = (Message) objectInputStream.readObject();
-                    objectOutputStream.writeObject(clientMessage);
+                    clientServer.serverLock.lock();
+                    Message serverMessage = handleMsg(clientMessage);
+                    clientServer.serverLock.unlock();
+                    if (serverMessage == null) {
+                        connected = false;
+                    } else {
+                        objectOutputStream.writeObject(serverMessage);
+                    }
                 } catch (IOException ioe) {
                     connected = false;
 //                    logger.error("Error: Connection Failed!");
@@ -57,5 +64,41 @@ public class ClientConnection implements Runnable {
 //                logger.error("Error: Disconnecting... Failed!");
             }
         }
+    }
+
+    private Message handleMsg(Message msg) {
+        StatusType type = msg.getStatus();
+        String key = msg.getKey();
+        String val = msg.getValue();
+        if (!(type == StatusType.GET && key != null && val.isEmpty())
+                && !(type == StatusType.PUT && key != null)) {
+            return null;
+        } else if (type == StatusType.PUT) {
+            boolean update = clientServer.inStorage(key);
+            try {
+                clientServer.putKV(key, val);
+                if (val == null) {
+                    type = StatusType.DELETE_SUCCESS;
+                } else if (update) {
+                    type = StatusType.PUT_UPDATE;
+                } else {
+                    type = StatusType.PUT_SUCCESS;
+                }
+            } catch (Exception e) {
+                if (val == null) {
+                    type = StatusType.DELETE_ERROR;
+                } else {
+                    type = StatusType.PUT_ERROR;
+                }
+            }
+        } else {
+            try {
+                val = clientServer.getKV(key);
+                type = StatusType.GET_SUCCESS;
+            } catch (Exception e) {
+                type = StatusType.GET_ERROR;
+            }
+        }
+        return new Message(type, key, val);
     }
 }

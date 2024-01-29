@@ -3,6 +3,9 @@ package app_kvServer;
 import java.net.ServerSocket;
 import java.util.concurrent.locks.ReentrantLock;
 import java.net.Socket;
+import java.io.File;
+import java.util.Scanner;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.BindException;
 
@@ -66,9 +69,9 @@ public class KVServer extends Thread implements IKVServer {
 	}
 
 	@Override
-    public boolean inStorage(String key){
-		// TODO Auto-generated method stub
-		return false;
+    public boolean inStorage(String key) {
+		File kvFile = new File("../storage/" + key);
+		return kvFile.exists();
 	}
 
 	@Override
@@ -78,14 +81,27 @@ public class KVServer extends Thread implements IKVServer {
 	}
 
 	@Override
-    public String getKV(String key) throws Exception{
-		// TODO Auto-generated method stub
-		return "";
+    public String getKV(String key) throws Exception {
+		File kvFile = new File("../storage/" + key);
+		if (!kvFile.exists())
+			throw new Exception();
+		Scanner kvFileScanner = new Scanner(kvFile);
+		String val = kvFileScanner.nextLine();
+		kvFileScanner.close();
+		return val;
 	}
 
 	@Override
-    public void putKV(String key, String value) throws Exception{
-		// TODO Auto-generated method stub
+    public void putKV(String key, String value) throws Exception {
+		File kvFile = new File("../storage/" + key);
+		if (kvFile.exists())
+			kvFile.delete();
+		if (value == null)
+			return;
+		kvFile.createNewFile();
+		FileWriter kvFileWriter = new FileWriter(kvFile);
+		kvFileWriter.write(value);
+		kvFileWriter.close();
 	}
 
 	@Override

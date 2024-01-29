@@ -61,7 +61,7 @@ public class KVStore implements KVCommInterface {
 
 	@Override
 	public Message get(String key) throws Exception {
-		objectOutputStream.writeObject(new Message(StatusType.GET, key, null));
+		objectOutputStream.writeObject(new Message(StatusType.GET, key, ""));
 		return (Message) objectInputStream.readObject();
 	}
 
