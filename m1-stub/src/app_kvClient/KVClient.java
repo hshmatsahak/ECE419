@@ -99,7 +99,7 @@ public class KVClient implements IKVClient {
                 if (token.length == 2) {
                     System.out.println("Deleting <key>: " + key + " ...");
                     try {
-                        Message kvMessage = kvStore.put(key, null);
+                        Message kvMessage = kvStore.put(key, "null");
                         if (kvMessage.getStatus() == StatusType.DELETE_ERROR)
                             perror("delete Error");
                         else {

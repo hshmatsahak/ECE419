@@ -70,14 +70,14 @@ public class ClientConnection implements Runnable {
         StatusType type = msg.getStatus();
         String key = msg.getKey();
         String val = msg.getValue();
-        if (!(type == StatusType.GET && key != null && val.isEmpty())
-                && !(type == StatusType.PUT && key != null)) {
+        if (!(type == StatusType.PUT && key != null && !val.isEmpty())
+                && !(type == StatusType.GET && key != null && val.isEmpty())) {
             return null;
         } else if (type == StatusType.PUT) {
             boolean update = clientServer.inStorage(key);
             try {
                 clientServer.putKV(key, val);
-                if (val == null) {
+                if (val.equals("null")) {
                     type = StatusType.DELETE_SUCCESS;
                 } else if (update) {
                     type = StatusType.PUT_UPDATE;
@@ -85,7 +85,7 @@ public class ClientConnection implements Runnable {
                     type = StatusType.PUT_SUCCESS;
                 }
             } catch (Exception e) {
-                if (val == null) {
+                if (val.equals("null")) {
                     type = StatusType.DELETE_ERROR;
                 } else {
                     type = StatusType.PUT_ERROR;

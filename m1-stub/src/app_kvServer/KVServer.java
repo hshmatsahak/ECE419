@@ -96,7 +96,7 @@ public class KVServer extends Thread implements IKVServer {
 		File kvFile = new File("../storage/" + key);
 		if (kvFile.exists())
 			kvFile.delete();
-		if (value == null)
+		if (value.equals("null"))
 			return;
 		kvFile.createNewFile();
 		FileWriter kvFileWriter = new FileWriter(kvFile);
