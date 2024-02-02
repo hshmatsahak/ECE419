@@ -10,7 +10,7 @@ import org.apache.log4j.Logger;
 import shared.messages.Message;
 import shared.messages.KVMessage.StatusType;
 
-public class ClientConnection implements Runnable {
+class ClientConnection implements Runnable {
 
     private static final Logger logger = Logger.getRootLogger();
     private final Socket clientSocket;

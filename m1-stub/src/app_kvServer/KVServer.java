@@ -28,7 +28,6 @@ public class KVServer extends Thread implements IKVServer {
 	 */
 	public KVServer(int port, int cacheSize, String strategy) {
 		serverPort = port;
-		serverCache = new Cache(2);
 	}
 
 	public static void main(String[] args) {
@@ -78,13 +77,11 @@ public class KVServer extends Thread implements IKVServer {
 
 	@Override
     public boolean inCache(String key){
-		return serverCache.inCache(key);
+		return false;
 	}
 
 	@Override
     public String getKV(String key) throws Exception {
-		if (inCache(key))
-			return serverCache.read(key);
 		File kvFile = new File("storage/" + key);
 		if (!kvFile.exists())
 			throw new Exception("File Does Not Exist!");
@@ -98,7 +95,6 @@ public class KVServer extends Thread implements IKVServer {
     public void putKV(String key, String value) throws Exception {
 		File kvFile = new File("storage/" + key);
 		if (value.equals("null")) {
-			serverCache.delete(key);
 			if (kvFile.exists())
 				kvFile.delete();
 			else
@@ -106,7 +102,6 @@ public class KVServer extends Thread implements IKVServer {
 		} else {
 			if (kvFile.exists())
 				kvFile.delete();
-			serverCache.write(key, value);
 			try {
 				kvFile.createNewFile();
 				FileWriter kvFileWriter = new FileWriter(kvFile);
