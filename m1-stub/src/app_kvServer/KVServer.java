@@ -12,7 +12,6 @@ import java.net.BindException;
 public class KVServer extends Thread implements IKVServer {
 
 	private int serverPort;
-	private Cache serverCache;
 	private boolean online;
 	private ServerSocket serverSocket;
 	final ReentrantLock serverLock = new ReentrantLock();
@@ -144,6 +143,20 @@ public class KVServer extends Thread implements IKVServer {
 //		logger.info("Server Closed");
 	}
 
+	private boolean initializeServer() {
+		System.out.println("KVServer> Initializing Server...");
+		try {
+			serverSocket = new ServerSocket(serverPort);
+			System.out.println("KVServer> Server Online! Port " + serverPort);
+			return true;
+		} catch (IOException e) {
+			System.out.println("KVServer> Error: Socket Bind Failed!");
+			if (e instanceof BindException)
+				System.out.println("KVServer> Port " + serverPort + " Unavailable!");
+			return false;
+		}
+	}
+
 	@Override
     public void kill(){
 		// TODO Auto-generated method stub
@@ -152,19 +165,5 @@ public class KVServer extends Thread implements IKVServer {
 	@Override
     public void close(){
 		// TODO Auto-generated method stub
-	}
-
-	private boolean initializeServer() {
-		System.out.println("KVServer> Establishing Connection...");
-		try {
-			serverSocket = new ServerSocket(serverPort);
-			System.out.println("KVServer> Connection Established! Port " + serverPort);
-			return true;
-		} catch (IOException e) {
-			System.out.println("KVServer> Error: Socket Bind Failed!");
-			if (e instanceof BindException)
-				System.out.println("KVServer> Port " + serverPort + " Unavailable!");
-			return false;
-		}
 	}
 }
