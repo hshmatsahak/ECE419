@@ -155,7 +155,7 @@ class ClientConnection implements Runnable {
                 return new TextMessage("GET_ERROR " + token[1]);
             }
         } else {
-            return new TextMessage("FAILURE");
+            return new TextMessage("FAILED");
         }
     }
 
