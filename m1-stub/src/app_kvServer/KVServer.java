@@ -38,6 +38,8 @@ public class KVServer extends Thread implements IKVServer {
 			pexit("No Arguments");
 		int port = -1;
 		String storeDir = null;
+		String logDir = "logs";
+		Level logLevel = Level.ALL;
 		for (int i=0; i<args.length; ++i) {
 			switch (args[i]) {
 			case "-p":
@@ -51,6 +53,11 @@ public class KVServer extends Thread implements IKVServer {
 					pexit("Invalid Port Argument");
 				}
 				break;
+			case "-a":
+				if (++i == args.length)
+					pexit("No Listen Address Argument");
+				pexit("Invalid Listen Address Argument");
+				break;
 			case "-d":
 				if (storeDir != null)
 					pexit("Ambiguous Storage Path Arguments");
@@ -58,12 +65,47 @@ public class KVServer extends Thread implements IKVServer {
 					pexit("No Storage Path Argument");
 				storeDir = args[i];
 				break;
-			default:
+			case "-l":
+				if (!logDir.equals("logs"))
+					pexit("Ambiguous Log Directory Argument");
+				if (++i == args.length)
+					pexit("No Log Directory Argument");
+				logDir = args[i];
 				break;
+			case "-ll":
+				if (!logLevel.equals("ALL"))
+					pexit("Ambiguous Log Level Argument");
+				if (++i == args.length)
+					pexit("No Log Level Argument");
+				if (args[i].equals("DEBUG"))
+					logLevel = Level.DEBUG;
+				else if (args[i].equals("INFO"))
+					logLevel = Level.INFO;
+				else if (args[i].equals("WARN"))
+					logLevel = Level.WARN;
+				else if (args[i].equals("ERROR"))
+					logLevel = Level.ERROR;
+				else if (args[i].equals("FATAL"))
+					logLevel = Level.FATAL;
+				else if (args[i].equals("OFF"))
+					logLevel = Level.OFF;
+				else
+					pexit("Invalid Log Level Argument");
+				break;
+			case "-h":
+				System.exit(0);
+			default:
+				pexit("Invalid Argument: " + args[i]);
 			}
 		}
 		if (port == -1 || storeDir == null)
 			pexit("Too Few Arguments");
+		try {
+			new LogSetup(logDir + "/server.log", logLevel);
+		} catch (IOException e) {
+			e.printStackTrace();
+			pexit("Initialize Server Log");
+		}
 		new KVServer(port, storeDir).start();
 	}
 
