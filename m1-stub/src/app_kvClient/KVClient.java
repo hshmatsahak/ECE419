@@ -238,7 +238,7 @@ public class KVClient implements IKVClient {
         return kvStore;
     }
 
-    public static void perror(String str) {
+    private static void perror(String str) {
         System.out.println(PROMPT + "Error: " + str + "!");
     }
 }
