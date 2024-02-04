@@ -40,6 +40,7 @@ class ClientConnection implements Runnable {
             outputStream = clientSocket.getOutputStream();
 //            objectInputStream = new ObjectInputStream(clientSocket.getInputStream());
 //            objectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
+            logger.info("Connecting... Done!");
             while (connected) {
                 try {
                     TextMessage clientTextMessage = readInputStream();
@@ -49,6 +50,7 @@ class ClientConnection implements Runnable {
                     writeOutputStream(serverTextMessage);
                 } catch (IOException ioe) {
                     connected = false;
+                    logger.error("Client Disconnected!");
                 }
 //                try {
 //                    Message clientMessage = (Message) objectInputStream.readObject();
@@ -69,17 +71,19 @@ class ClientConnection implements Runnable {
 //                }
             }
         } catch (IOException ioe) {
-//            logger.error("Error: Connecting... Failed!");
+            logger.error("Connecting... Error!");
         } finally {
             try {
 //                if (objectInputStream != null)
 //                    objectInputStream.close();
 //                if (objectOutputStream != null)
 //                    objectOutputStream.close();
-                if (clientSocket != null)
+                if (clientSocket != null) {
                     clientSocket.close();
+                    logger.info("Socket Closed!");
+                }
             } catch (IOException ioe) {
-//                logger.error("Error: Disconnecting... Failed!");
+                logger.error("Error Closing Client Socket!");
             }
         }
     }

@@ -175,12 +175,16 @@ public class KVServer extends Thread implements IKVServer {
 
 	@Override
     public String getKV(String key) throws Exception {
+		logger.info("getting " + key + "...");
 		File kvFile = new File(serverStorePath + key);
-		if (!kvFile.exists())
+		if (!kvFile.exists()) {
+			logger.error(key + " Does Not Exist!");
 			throw new Exception("File Does Not Exist!");
+		}
 		Scanner kvFileScanner = new Scanner(kvFile);
 		String val = kvFileScanner.nextLine();
 		kvFileScanner.close();
+		logger.info("Corresponding: " + val);
 		return val;
 	}
 
@@ -188,19 +192,27 @@ public class KVServer extends Thread implements IKVServer {
     public void putKV(String key, String value) throws Exception {
 		File kvFile = new File(serverStorePath + key);
 		if (value.equals("null")) {
-			if (kvFile.exists())
+			if (kvFile.exists()) {
 				kvFile.delete();
-			else
+				logger.info("Deleted " + key);
+			} else {
+				logger.error(key + " Does Not Exist!");
 				throw new Exception("File Does Not Exist!");
+			}
 		} else {
-			if (kvFile.exists())
+			if (kvFile.exists()) {
 				kvFile.delete();
+				logger.info("Updating " + key + " Corresponding: " + value + " ...");
+			} else
+				logger.info("Inserting " + key + " Corresponding: " + value + " ...");
 			try {
 				kvFile.createNewFile();
 				FileWriter kvFileWriter = new FileWriter(kvFile);
 				kvFileWriter.write(value);
 				kvFileWriter.close();
+				logger.info("Done!");
 			} catch (Exception e) {
+				logger.error("Error Creating/Writing File!");
 				throw new Exception("Error Creating/Writing File!");
 			}
 		}

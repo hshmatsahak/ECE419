@@ -1,7 +1,0 @@
-Manifest-Version: 1.0
-Ant-Version: Apache Ant 1.10.14
-Created-By: 21.0.1 (Homebrew)
-built-by: jiaruiwang
-Main-Class: app_kvClient.KVClient
-Class-Path: ${project.classpath}
-
