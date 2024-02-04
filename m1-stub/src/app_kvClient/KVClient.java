@@ -190,6 +190,13 @@ public class KVClient implements IKVClient {
             }
             break;
         case "help":
+            System.out.println("\n     Connect To Server: connect <addr> <port>");
+            System.out.println("Disconnect From Server: disconnect");
+            System.out.println("    Inserting/Updating: put <key> <val>");
+            System.out.println("              Deleting: put <key>");
+            System.out.println("        Retrieving Key: get <key>");
+            System.out.println("             Log Level: logLevel <level>");
+            System.out.println("                  Quit: quit\n");
             break;
         case "quit":
             if (token.length != 1) {

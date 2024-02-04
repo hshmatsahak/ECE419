@@ -73,7 +73,7 @@ public class KVServer extends Thread implements IKVServer {
 				logDir = args[i];
 				break;
 			case "-ll":
-				if (!logLevel.equals("ALL"))
+				if (!logLevel.toString().equals("ALL"))
 					pexit("Ambiguous Log Level Argument");
 				if (++i == args.length)
 					pexit("No Log Level Argument");
@@ -93,6 +93,7 @@ public class KVServer extends Thread implements IKVServer {
 					pexit("Invalid Log Level Argument");
 				break;
 			case "-h":
+				System.out.println("-p <port> -a <addr> -d <store dir> -l <log dir> -ll <log level>");
 				System.exit(0);
 			default:
 				pexit("Invalid Argument: " + args[i]);
