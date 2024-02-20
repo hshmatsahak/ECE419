@@ -1,43 +1,56 @@
 package ecs;
 
 import java.net.Socket;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import org.apache.commons.codec.binary.Hex;
 
 public class ECSNode implements IECSNode {
 
-    private Socket serverSock;
-    private String serverName;
-    private String serverAddr;
-    private int serverPort;
-    private String[] serverHashRange;
+    private Socket nodeSock;
+    private String nodeName;
+    private String nodeAddr;
+    private int nodePort;
+    private String[] nodeHashRange;
 
     public ECSNode(Socket sock) {
-        serverSock = sock;
-        serverAddr = sock.getInetAddress().getHostAddress();
-        serverPort = sock.getPort();
-        serverName = serverAddr + ":" + serverPort;
+        nodeSock = sock;
+        nodeAddr = sock.getInetAddress().getHostAddress();
+        nodePort = sock.getPort();
+        nodeName = nodeAddr + ":" + nodePort;
+        nodeHashRange = new String[2];
+        try {
+            MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+            messageDigest.update(nodeName.getBytes());
+            nodeHashRange[1] = Hex.encodeHexString(messageDigest.digest());
+        } catch (NoSuchAlgorithmException ignored) {}
     }
 
     public Socket getNodeSock() {
-        return serverSock;
+        return nodeSock;
     }
 
     @Override
     public String getNodeName() {
-        return serverName;
+        return nodeName;
     }
 
     @Override
     public String getNodeHost() {
-        return serverAddr;
+        return nodeAddr;
     }
 
     @Override
     public int getNodePort() {
-        return serverPort;
+        return nodePort;
     }
 
     @Override
     public String[] getNodeHashRange() {
-        return serverHashRange;
+        return nodeHashRange;
+    }
+
+    public void setPredecessorHash(String hash) {
+        nodeHashRange[0] = hash;
     }
 }

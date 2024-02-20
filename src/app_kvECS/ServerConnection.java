@@ -21,7 +21,7 @@ class ServerConnection implements Runnable {
         while (online) {
             try {
                 Socket serverSocket = ecsServerSocket.accept();
-                ecsClient.newNode(new ECSNode(serverSocket));
+                ecsClient.insertNode(new ECSNode(serverSocket));
             } catch (IOException ioe) {
                 online = false;
             }
