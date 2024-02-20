@@ -11,13 +11,15 @@ public class ECSNode implements IECSNode {
     private String nodeName;
     private String nodeAddr;
     private int nodePort;
+    private int serverPort;
     private String[] nodeHashRange;
 
-    public ECSNode(Socket sock) {
+    public ECSNode(Socket sock, int port) {
         nodeSock = sock;
         nodeAddr = sock.getInetAddress().getHostAddress();
         nodePort = sock.getPort();
         nodeName = nodeAddr + ":" + nodePort;
+        serverPort = port;
         nodeHashRange = new String[2];
         try {
             MessageDigest messageDigest = MessageDigest.getInstance("MD5");
@@ -28,6 +30,10 @@ public class ECSNode implements IECSNode {
 
     public Socket getNodeSock() {
         return nodeSock;
+    }
+
+    public int getServerPort() {
+        return serverPort;
     }
 
     @Override

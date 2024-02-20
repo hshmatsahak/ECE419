@@ -25,6 +25,8 @@ public class KVServer extends Thread implements IKVServer {
 	private boolean online;
 	private ServerSocket serverSocket;
 	final ReentrantLock serverLock = new ReentrantLock();
+	public String metadata = "";
+	public String[] keyRange = new String[2];
 
 	public KVServer(String bootstrapAddr, int bootstrapPort, int port, String storeDir) {
 		ecsAddr = bootstrapAddr;
@@ -252,7 +254,7 @@ public class KVServer extends Thread implements IKVServer {
 	@Override
     public void run() {
 		try {
-			new Thread(new ECSConnection(this, new Socket(ecsAddr, ecsPort))).start();
+			new Thread(new ECSConnection(this, new Socket(ecsAddr, ecsPort), serverPort)).start();
 		} catch (IOException ioe) {
 			pexit("ECS Connection");
 		}

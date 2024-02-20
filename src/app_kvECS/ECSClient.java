@@ -88,7 +88,10 @@ public class ECSClient implements IECSClient {
                 || nodeHash.compareTo(nodeRing.get(0).getNodeHashRange()[1]) < 0) {
             nodeRing.get(0).setPredecessorHash(nodeHash);
             node.setPredecessorHash(nodeRing.get(nodeRing.size()-1).getNodeHashRange()[1]);
-            nodeRing.add(node);
+            if (nodeHash.compareTo(nodeRing.get(0).getNodeHashRange()[1]) < 0)
+                nodeRing.add(0, node);
+            else
+                nodeRing.add(node);
         } else {
             for (int i = 1; i < nodeRing.size(); i++) {
                 if (nodeHash.compareTo(nodeRing.get(i-1).getNodeHashRange()[1]) > 0
@@ -101,9 +104,8 @@ public class ECSClient implements IECSClient {
             }
         }
         occupiedNode.put(node.getNodeName(), node);
-        for (ECSNode n : nodeRing) {
-            System.out.println(n.getNodeName() + " " + n.getNodeHashRange()[0] + " " + n.getNodeHashRange()[1]);
-        }
+        for (ECSNode test : nodeRing)
+            System.out.println(test.getServerPort());
     }
 
     @Override
