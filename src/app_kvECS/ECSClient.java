@@ -4,8 +4,36 @@ import java.util.Map;
 import java.util.Collection;
 
 import ecs.IECSNode;
+import ecs.ECSNode;
 
 public class ECSClient implements IECSClient {
+
+    final int ecsPort;
+
+    public static void main(String[] args) {
+        if (args.length == 1) {
+            try {
+                int port = Integer.parseInt(args[0]);
+                ECSClient ecsClient = new ECSClient(port);
+                Thread serverConnection = new Thread(new ServerConnection(ecsClient));
+                serverConnection.start();
+            } catch (NumberFormatException nfe) {
+                System.out.println("ECS> Error: Invalid ECS Port!");
+                System.exit(1);
+            }
+        } else {
+            System.out.println("ECS> Error: Invalid Argument Count!");
+            System.exit(1);
+        }
+    }
+
+    public ECSClient(int port) {
+        ecsPort = port;
+    }
+
+    public void newNode(ECSNode node) {
+        System.out.println("ECS> New Server " + node.getNodeName());
+    }
 
     @Override
     public boolean start() {
@@ -65,9 +93,5 @@ public class ECSClient implements IECSClient {
     public IECSNode getNodeByKey(String Key) {
         // TODO
         return null;
-    }
-
-    public static void main(String[] args) {
-        // TODO
     }
 }

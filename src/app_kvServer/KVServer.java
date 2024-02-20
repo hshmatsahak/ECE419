@@ -18,13 +18,17 @@ public class KVServer extends Thread implements IKVServer {
 
 	private static final Logger logger = Logger.getRootLogger();
 	private static final String PROMPT = "KVServer> ";
+	private String ecsAddr;
+	private int ecsPort;
 	private int serverPort;
 	private String serverStorePath;
 	private boolean online;
 	private ServerSocket serverSocket;
 	final ReentrantLock serverLock = new ReentrantLock();
 
-	public KVServer(int port, String storeDir) {
+	public KVServer(String bootstrapAddr, int bootstrapPort, int port, String storeDir) {
+		ecsAddr = bootstrapAddr;
+		ecsPort = bootstrapPort;
 		serverPort = port;
 		serverStorePath = storeDir + "/";
 	}
@@ -36,12 +40,28 @@ public class KVServer extends Thread implements IKVServer {
 	private static void handleArgs(String[] args) {
 		if (args.length == 0)
 			pexit("No Arguments");
+		String bootstrapAddr = null;
+		int bootstrapPort = -1;
 		int port = -1;
 		String storeDir = null;
 		String logDir = "logs";
 		Level logLevel = Level.ALL;
 		for (int i=0; i<args.length; ++i) {
 			switch (args[i]) {
+			case "-b":
+				if (bootstrapAddr != null || bootstrapPort != -1)
+					pexit("Ambiguous ECS Bootstrap Arguments");
+				if (++i == args.length)
+					pexit("No ECS Bootstrap Argument");
+				if (args[i].split(":").length != 2)
+					pexit("-b <ecsAddr>:<ecsPort>");
+				try {
+					bootstrapPort = Integer.parseInt(args[i].split(":")[1]);
+				} catch (NumberFormatException nfe) {
+					pexit("Invalid ECS Port");
+				}
+				bootstrapAddr = args[i].split(":")[0];
+				break;
 			case "-p":
 				if (port != -1)
 					pexit("Ambiguous Port Arguments");
@@ -99,7 +119,7 @@ public class KVServer extends Thread implements IKVServer {
 				pexit("Invalid Argument: " + args[i]);
 			}
 		}
-		if (port == -1 || storeDir == null)
+		if (bootstrapAddr == null || bootstrapPort == -1 || port == -1 || storeDir == null)
 			pexit("Too Few Arguments");
 		try {
 			new LogSetup(logDir + "/server.log", logLevel);
@@ -107,7 +127,7 @@ public class KVServer extends Thread implements IKVServer {
 			e.printStackTrace();
 			pexit("Initialize Server Log");
 		}
-		new KVServer(port, storeDir).start();
+		new KVServer(bootstrapAddr, bootstrapPort, port, storeDir).start();
 	}
 
 	/**
@@ -231,6 +251,11 @@ public class KVServer extends Thread implements IKVServer {
 
 	@Override
     public void run() {
+		try {
+			new Thread(new ECSConnection(this, new Socket(ecsAddr, ecsPort))).start();
+		} catch (IOException ioe) {
+			pexit("ECS Connection");
+		}
 		online = initializeServer();
 		if (serverSocket == null) {
 			System.out.println("KVServer> Error: Connection Lost!");
