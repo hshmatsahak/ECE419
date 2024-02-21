@@ -158,6 +158,19 @@ class ClientConnection implements Runnable {
             } catch (Exception e) {
                 return new TextMessage("GET_ERROR " + token[1]);
             }
+        } else if (token[0].equals("transfer") && token.length > 2) {
+            try {
+                StringBuilder val = new StringBuilder();
+                for (int i=2; i<token.length; ++i) {
+                    val.append(token[i]);
+                    if (i != token.length - 1)
+                        val.append(" ");
+                }
+                clientServer.putKV(token[1], val.toString());
+                return new TextMessage("success");
+            } catch (Exception ignored) {
+                return new TextMessage("failed");
+            }
         } else {
             return new TextMessage("FAILED");
         }

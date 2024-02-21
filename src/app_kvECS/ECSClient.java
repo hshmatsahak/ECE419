@@ -112,12 +112,12 @@ public class ECSClient implements IECSClient {
         TextMessage addMsg = new TextMessage("add " + getMetadata() + " " + listener);
         System.out.println(addMsg.getTextMessage());
         for (ECSNode node : nodeRing) {
-            // try {
-            //     node.writeOutputStream(addMsg);
-            //     node.readInputStream();
-            // } catch (IOException ioe) {
-            //     System.exit(1);
-            // }
+            try {
+                node.writeOutputStream(addMsg);
+                node.readInputStream();
+            } catch (IOException ioe) {
+                System.exit(1);
+            }
         }
     }
 

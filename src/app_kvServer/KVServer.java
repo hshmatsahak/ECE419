@@ -8,9 +8,13 @@ import java.util.Scanner;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.BindException;
+import java.util.ArrayList;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import org.apache.log4j.Logger;
 import org.apache.log4j.Level;
+import org.apache.commons.codec.binary.Hex;
 
 import logger.LogSetup;
 
@@ -32,7 +36,7 @@ public class KVServer extends Thread implements IKVServer {
 		ecsAddr = bootstrapAddr;
 		ecsPort = bootstrapPort;
 		serverPort = port;
-		serverStorePath = storeDir + "/";
+		serverStorePath = storeDir + port + "/";
 	}
 
 	public static void main(String[] args) {
@@ -160,6 +164,22 @@ public class KVServer extends Thread implements IKVServer {
 //			}
 //		}
 //	}
+
+	public ArrayList<File> transferKeyRange(String krFrom, String krTo) {
+		ArrayList<File> transferFile = new ArrayList<>();
+		try {
+			MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+			for (File file : new File(serverStorePath).listFiles()) {
+				messageDigest.update(file.getName().getBytes());
+				String keyHash = Hex.encodeHexString(messageDigest.digest());
+				if ((krFrom.compareTo(krTo) < 0 && keyHash.compareTo(krFrom) > 0 && keyHash.compareTo(krTo) <= 0)
+						|| (krFrom.compareTo(krTo) > 0 && (keyHash.compareTo(krFrom) > 0 || keyHash.compareTo(krTo) <= 0))) {
+					transferFile.add(file);
+				}
+			}
+		} catch (NoSuchAlgorithmException ignored) {}
+		return transferFile;
+	}
 
 	@Override
 	public int getPort(){

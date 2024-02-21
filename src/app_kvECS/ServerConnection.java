@@ -26,9 +26,7 @@ class ServerConnection implements Runnable {
             try {
                 Socket serverSocket = ecsServerSocket.accept();
                 ecsClient.insertNode(new ECSNode(serverSocket, Integer.parseInt(readInputStream(serverSocket).getTextMessage())));
-            } catch (NumberFormatException | IOException e) {
-                online = false;
-            }
+            } catch (NumberFormatException | IOException ignored) {}
         }
     }
 

@@ -4,6 +4,9 @@ import java.net.Socket;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.io.File;
+import java.util.Scanner;
 
 import shared.messages.TextMessage;
 
@@ -27,14 +30,14 @@ class ECSConnection implements Runnable {
 
     public void run() {
         try {
-            writeOutputStream(new TextMessage(Integer.toString(serverPort)));
+            writeOutputStream(new TextMessage(Integer.toString(serverPort)), outputStream);
         } catch (IOException ignored) {}
         while (true) {
-            // try {
-            //     TextMessage ecsMsg = readInputStream();
-            //     TextMessage serverMsg = handleMsg(ecsMsg);
-            //     writeOutputStream(serverMsg);
-            // } catch (IOException ignored) {}
+            try {
+                TextMessage ecsMsg = readInputStream(inputStream);
+                TextMessage serverMsg = handleMsg(ecsMsg);
+                writeOutputStream(serverMsg, outputStream);
+            } catch (IOException ignored) {}
         }
     }
 
@@ -48,6 +51,15 @@ class ECSConnection implements Runnable {
                     if (!kvServer.metadata.isEmpty() && !kvServer.keyRange[0].equals(data[0])) {
                         try {
                             Socket interServerConnection = new Socket(token[2].split(":")[0], Integer.parseInt(token[2].split(":")[1]));
+                            InputStream serverInput = interServerConnection.getInputStream();
+                            OutputStream serverOutput = interServerConnection.getOutputStream();
+                            ArrayList<File> transferFile = kvServer.transferKeyRange(kvServer.keyRange[0], data[0]);
+                            for (File file : transferFile) {
+                                Scanner fileScanner = new Scanner(file);
+                                writeOutputStream(new TextMessage("transfer " + file.getName() + " " + fileScanner.nextLine()), serverOutput);
+                                readInputStream(serverInput);
+                            }
+                            interServerConnection.close();
                         } catch (NumberFormatException | IOException ignored) {}
                     }
                     kvServer.metadata = token[1];
@@ -61,8 +73,8 @@ class ECSConnection implements Runnable {
         return null;
     }
 
-    private TextMessage readInputStream() throws IOException {
-        byte read = (byte) inputStream.read();
+    private TextMessage readInputStream(InputStream stream) throws IOException {
+        byte read = (byte) stream.read();
         boolean drop = false;
         int i = 0;
         byte[] byteMsg = null;
@@ -85,7 +97,7 @@ class ECSConnection implements Runnable {
             byteBuffer[i++] = read;
             if (byteMsg != null && byteMessage.length + i == DROP_SIZE)
                 drop = true;
-            read = (byte) inputStream.read();
+            read = (byte) stream.read();
         }
         if (byteMsg == null) {
             byteMessage = new byte[i];
@@ -98,9 +110,9 @@ class ECSConnection implements Runnable {
         return new TextMessage(byteMessage);
     }
 
-    private void writeOutputStream(TextMessage msg) throws IOException {
+    private void writeOutputStream(TextMessage msg, OutputStream stream) throws IOException {
         byte[] byteMsg = msg.getByteMessage();
-        outputStream.write(byteMsg, 0, byteMsg.length);
-        outputStream.flush();
+        stream.write(byteMsg, 0, byteMsg.length);
+        stream.flush();
     }
 }
