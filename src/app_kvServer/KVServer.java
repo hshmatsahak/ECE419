@@ -26,7 +26,7 @@ public class KVServer extends Thread implements IKVServer {
 	private ServerSocket serverSocket;
 	final ReentrantLock serverLock = new ReentrantLock();
 	public String metadata = "";
-	public String[] keyRange = new String[2];
+	public String[] keyRange = {"", ""};
 
 	public KVServer(String bootstrapAddr, int bootstrapPort, int port, String storeDir) {
 		ecsAddr = bootstrapAddr;

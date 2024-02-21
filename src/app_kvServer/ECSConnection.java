@@ -29,7 +29,36 @@ class ECSConnection implements Runnable {
         try {
             writeOutputStream(new TextMessage(Integer.toString(serverPort)));
         } catch (IOException ignored) {}
-        while (true) {}
+        while (true) {
+            // try {
+            //     TextMessage ecsMsg = readInputStream();
+            //     TextMessage serverMsg = handleMsg(ecsMsg);
+            //     writeOutputStream(serverMsg);
+            // } catch (IOException ignored) {}
+        }
+    }
+
+    private TextMessage handleMsg(TextMessage msg) {
+        String[] token = msg.getTextMessage().split("\\s+");
+        switch (token[0]) {
+        case "add":
+            for (String metadata : token[1].split(";")) {
+                String[] data = metadata.split(",");
+                if (data[2].equals(ecsSock.getLocalAddress().getHostAddress() + ":" + ecsSock.getLocalPort())) {
+                    if (!kvServer.metadata.isEmpty() && !kvServer.keyRange[0].equals(data[0])) {
+                        try {
+                            Socket interServerConnection = new Socket(token[2].split(":")[0], Integer.parseInt(token[2].split(":")[1]));
+                        } catch (NumberFormatException | IOException ignored) {}
+                    }
+                    kvServer.metadata = token[1];
+                    kvServer.keyRange[0] = data[0];
+                    kvServer.keyRange[1] = data[1];
+                    return new TextMessage("success");
+                }
+            }
+            break;
+        }
+        return null;
     }
 
     private TextMessage readInputStream() throws IOException {

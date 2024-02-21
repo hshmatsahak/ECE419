@@ -10,6 +10,7 @@ import java.io.IOException;
 
 import ecs.IECSNode;
 import ecs.ECSNode;
+import shared.messages.TextMessage;
 
 public class ECSClient implements IECSClient {
 
@@ -104,8 +105,27 @@ public class ECSClient implements IECSClient {
             }
         }
         occupiedNode.put(node.getNodeName(), node);
-        for (ECSNode test : nodeRing)
-            System.out.println(test.getServerPort());
+        awaitAddNode(node.getNodeSock().getLocalAddress().getHostAddress() + ":" + node.getServerPort());
+    }
+
+    private void awaitAddNode(String listener) {
+        TextMessage addMsg = new TextMessage("add " + getMetadata() + " " + listener);
+        System.out.println(addMsg.getTextMessage());
+        for (ECSNode node : nodeRing) {
+            // try {
+            //     node.writeOutputStream(addMsg);
+            //     node.readInputStream();
+            // } catch (IOException ioe) {
+            //     System.exit(1);
+            // }
+        }
+    }
+
+    private String getMetadata() {
+        StringBuilder metadata = new StringBuilder();
+        for (ECSNode node : nodeRing)
+            metadata.append(node.getNodeHashRange()[0] + "," + node.getNodeHashRange()[1] + "," + node.getNodeName() + ";");
+        return metadata.toString();
     }
 
     @Override
