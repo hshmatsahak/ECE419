@@ -57,6 +57,7 @@ class ECSConnection implements Runnable {
                             for (File file : transferFile) {
                                 Scanner fileScanner = new Scanner(file);
                                 writeOutputStream(new TextMessage("transfer " + file.getName() + " " + fileScanner.nextLine()), serverOutput);
+                                fileScanner.close();
                                 readInputStream(serverInput);
                             }
                             interServerConnection.close();

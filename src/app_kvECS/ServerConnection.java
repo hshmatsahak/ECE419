@@ -31,7 +31,7 @@ class ServerConnection implements Runnable {
     }
 
     private boolean initServerConnection() {
-        System.out.print("ServerConnection> Initializing... ");
+        System.out.print("ECS> Initializing... ");
         try {
             ecsServerSocket = new ServerSocket(ecsClient.ecsPort);
             System.out.println("Online! Port " + ecsClient.ecsPort);
@@ -39,7 +39,7 @@ class ServerConnection implements Runnable {
         } catch (IOException ioe) {
             System.out.println("Error: Socket Bind Failed!");
             if (ioe instanceof BindException)
-                System.out.println("ServerConnection> Port " + ecsClient.ecsPort + " Unavailable!");
+                System.out.println("ECS> Port " + ecsClient.ecsPort + " Unavailable!");
             return false;
         }
     }

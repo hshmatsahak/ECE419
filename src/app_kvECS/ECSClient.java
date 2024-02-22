@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.IOException;
+import java.util.stream.IntStream;
 
 import ecs.IECSNode;
 import ecs.ECSNode;
@@ -21,9 +22,9 @@ public class ECSClient implements IECSClient {
     private boolean quit = false;
 
     public static void main(String[] args) {
-        if (args.length == 1) {
+        if (args.length == 2 && args[0].equals("-p")) {
             try {
-                int port = Integer.parseInt(args[0]);
+                int port = Integer.parseInt(args[1]);
                 ECSClient ecsClient = new ECSClient(port);
                 Thread serverConnection = new Thread(new ServerConnection(ecsClient));
                 serverConnection.start();
@@ -37,6 +38,7 @@ public class ECSClient implements IECSClient {
             }
         } else {
             System.out.println("ECS> Error: Invalid Argument Count!");
+            System.out.println("ECS> -p <port>");
             System.exit(1);
         }
     }
@@ -44,8 +46,8 @@ public class ECSClient implements IECSClient {
     public ECSClient(int port) {
         ecsPort = port;
         availableNode = new HashMap<>();
-        occupiedNode = new HashMap<>();
         nodeRing = new ArrayList<>();
+        occupiedNode = new HashMap<>();
     }
 
     public void insertNode(ECSNode node) {
@@ -70,15 +72,28 @@ public class ECSClient implements IECSClient {
         switch (token[0]) {
         case "add":
             try {
-                addNode(Integer.parseInt(token[1]));
-            } catch (NumberFormatException ignored) {}
+                int count;
+                if (token.length != 2)
+                    System.out.println("ECS> Error: Invalid Argument Count!");
+                else if ((count = Integer.parseInt(token[1])) <= 0)
+                    System.out.println("ECS> Error: Too Few Nodes!");
+                else
+                    addNodes(count);
+            } catch (NumberFormatException nfe) {
+                System.out.println("ECS> Error: Invalid Node Count!");
+            }
             break;
         }
     }
 
-    private void addNode(int count) {
+    private void addNodes(int count) {
         if (count > availableNode.size())
             System.out.println("ECS> Error: Too Many Nodes!");
+        else
+            IntStream.range(0, count).forEach(i -> addNode());
+    }
+
+    private void addNode() {
         ECSNode node = new ArrayList<>(availableNode.values()).get(0);
         availableNode.remove(node.getNodeName());
         String nodeHash = node.getNodeHashRange()[1];
@@ -104,13 +119,12 @@ public class ECSClient implements IECSClient {
                 }
             }
         }
-        occupiedNode.put(node.getNodeName(), node);
         awaitAddNode(node.getNodeSock().getLocalAddress().getHostAddress() + ":" + node.getServerPort());
+        occupiedNode.put(node.getNodeName(), node);
     }
 
     private void awaitAddNode(String listener) {
         TextMessage addMsg = new TextMessage("add " + getMetadata() + " " + listener);
-        System.out.println(addMsg.getTextMessage());
         for (ECSNode node : nodeRing) {
             try {
                 node.writeOutputStream(addMsg);

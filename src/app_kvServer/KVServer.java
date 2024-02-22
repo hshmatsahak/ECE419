@@ -25,6 +25,7 @@ public class KVServer extends Thread implements IKVServer {
 	private String ecsAddr;
 	private int ecsPort;
 	private int serverPort;
+	private String storeDir;
 	private String serverStorePath;
 	private boolean online;
 	private ServerSocket serverSocket;
@@ -32,11 +33,15 @@ public class KVServer extends Thread implements IKVServer {
 	public String metadata = "";
 	public String[] keyRange = {"", ""};
 
-	public KVServer(String bootstrapAddr, int bootstrapPort, int port, String storeDir) {
+	public KVServer(String bootstrapAddr, int bootstrapPort, int port, String dir) {
 		ecsAddr = bootstrapAddr;
 		ecsPort = bootstrapPort;
 		serverPort = port;
-		serverStorePath = storeDir + port + "/";
+		storeDir = dir + port;
+		File dirFile = new File(storeDir);
+		if (!dirFile.exists())
+			dirFile.mkdir();
+		serverStorePath = storeDir + "/";
 	}
 
 	public static void main(String[] args) {
@@ -169,7 +174,7 @@ public class KVServer extends Thread implements IKVServer {
 		ArrayList<File> transferFile = new ArrayList<>();
 		try {
 			MessageDigest messageDigest = MessageDigest.getInstance("MD5");
-			for (File file : new File(serverStorePath).listFiles()) {
+			for (File file : new File(storeDir).listFiles()) {
 				messageDigest.update(file.getName().getBytes());
 				String keyHash = Hex.encodeHexString(messageDigest.digest());
 				if ((krFrom.compareTo(krTo) < 0 && keyHash.compareTo(krFrom) > 0 && keyHash.compareTo(krTo) <= 0)
