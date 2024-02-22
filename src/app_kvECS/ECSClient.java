@@ -73,8 +73,8 @@ public class ECSClient implements IECSClient {
         case "add":
             try {
                 int count;
-                if (token.length != 2)
-                    System.out.println("ECS> Error: Invalid Argument Count!");
+                if (token.length > 2)
+                    System.out.println("ECS> Error: Too Many Arguments!");
                 else if ((count = Integer.parseInt(token[1])) <= 0)
                     System.out.println("ECS> Error: Too Few Nodes!");
                 else
@@ -82,6 +82,21 @@ public class ECSClient implements IECSClient {
             } catch (NumberFormatException nfe) {
                 System.out.println("ECS> Error: Invalid Node Count!");
             }
+            break;
+        case "remove":
+            try {
+                int count;
+                if (token.length > 2)
+                    System.out.println("ECS> Error: Too Many Arguments!");
+                else if ((count = Integer.parseInt(token[1])) <= 0)
+                    System.out.println("ECS> Error: Too Few Nodes!");
+                else
+                    removeNodes(count);
+            } catch (NumberFormatException nfe) {
+                System.out.println("ECS> Error: Invalid Node Count!");
+            }
+            break;
+        default:
             break;
         }
     }
@@ -96,6 +111,7 @@ public class ECSClient implements IECSClient {
     private void addNode() {
         ECSNode node = new ArrayList<>(availableNode.values()).get(0);
         availableNode.remove(node.getNodeName());
+        occupiedNode.put(node.getNodeName(), node);
         String nodeHash = node.getNodeHashRange()[1];
         if (nodeRing.isEmpty()) {
             node.setPredecessorHash(nodeHash);
@@ -119,13 +135,12 @@ public class ECSClient implements IECSClient {
                 }
             }
         }
-        awaitAddNode(node.getNodeSock().getLocalAddress().getHostAddress() + ":" + node.getServerPort());
-        occupiedNode.put(node.getNodeName(), node);
+        awaitNode("add", node.getNodeSock().getLocalAddress().getHostAddress() + ":" + node.getServerPort());
     }
 
-    private void awaitAddNode(String listener) {
-        TextMessage addMsg = new TextMessage("add " + getMetadata() + " " + listener);
-        for (ECSNode node : nodeRing) {
+    private void awaitNode(String msg, String listener) {
+        TextMessage addMsg = new TextMessage(msg + " " + getMetadata() + " " + listener);
+        for (ECSNode node : occupiedNode.values()) {
             try {
                 node.writeOutputStream(addMsg);
                 node.readInputStream();
@@ -140,6 +155,24 @@ public class ECSClient implements IECSClient {
         for (ECSNode node : nodeRing)
             metadata.append(node.getNodeHashRange()[0] + "," + node.getNodeHashRange()[1] + "," + node.getNodeName() + ";");
         return metadata.toString();
+    }
+
+    private void removeNodes(int count) {
+        if (count > occupiedNode.size())
+            System.out.println("ECS> Error: Too Many Nodes!");
+        else
+            IntStream.range(0, count).forEach(i -> removeNode());
+    }
+
+    private void removeNode() {
+        ECSNode node = new ArrayList<>(occupiedNode.values()).get(0);
+        occupiedNode.remove(node.getNodeName());
+        availableNode.put(node.getNodeName(), node);
+        int index = nodeRing.indexOf(node);
+        nodeRing.remove(index);
+        ECSNode updateNode = nodeRing.get(index == nodeRing.size() ? 0 : index);
+        updateNode.setPredecessorHash(node.getNodeHashRange()[0]);
+        awaitNode("remove", updateNode.getNodeSock().getLocalAddress().getHostAddress() + ":" + updateNode.getServerPort());
     }
 
     @Override

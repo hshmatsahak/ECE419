@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.io.File;
 import java.util.Scanner;
+import java.util.HashSet;
 
 import shared.messages.TextMessage;
 
@@ -48,11 +49,11 @@ class ECSConnection implements Runnable {
             for (String metadata : token[1].split(";")) {
                 String[] data = metadata.split(",");
                 if (data[2].equals(ecsSock.getLocalAddress().getHostAddress() + ":" + ecsSock.getLocalPort())) {
-                    if (!kvServer.metadata.isEmpty() && !kvServer.keyRange[0].equals(data[0])) {
+                    if (!kvServer.keyRange.equals("") && !kvServer.keyRange[0].equals(data[0])) {
                         try {
                             Socket interServerConnection = new Socket(token[2].split(":")[0], Integer.parseInt(token[2].split(":")[1]));
-                            InputStream serverInput = interServerConnection.getInputStream();
                             OutputStream serverOutput = interServerConnection.getOutputStream();
+                            InputStream serverInput = interServerConnection.getInputStream();
                             ArrayList<File> transferFile = kvServer.transferKeyRange(kvServer.keyRange[0], data[0]);
                             for (File file : transferFile) {
                                 Scanner fileScanner = new Scanner(file);
@@ -69,6 +70,31 @@ class ECSConnection implements Runnable {
                     return new TextMessage("success");
                 }
             }
+            break;
+        case "remove":
+            HashSet nodeName = new HashSet<String>();
+            for (String metadata : token[1].split(";"))
+                nodeName.add(metadata.split(",")[2]);
+            if (!nodeName.contains(ecsSock.getLocalAddress().getHostAddress() + ":" + ecsSock.getLocalPort())) {
+                try {
+                    Socket interServerConnection = new Socket(token[2].split(":")[0], Integer.parseInt(token[2].split(":")[1]));
+                    OutputStream serverOutput = interServerConnection.getOutputStream();
+                    InputStream serverInput = interServerConnection.getInputStream();
+                    ArrayList<File> transferFile = kvServer.transferKeyRange(kvServer.keyRange[0], kvServer.keyRange[1]);
+                    for (File file : transferFile) {
+                        Scanner fileScanner = new Scanner(file);
+                        writeOutputStream(new TextMessage("transfer " + file.getName() + " " + fileScanner.nextLine()), serverOutput);
+                        fileScanner.close();
+                        readInputStream(serverInput);
+                    }
+                    interServerConnection.close();
+                } catch (NumberFormatException | IOException ignored) {}
+            }
+            kvServer.metadata = token[1];
+            kvServer.keyRange[0] = "";
+            kvServer.keyRange[1] = "";
+            return new TextMessage("success");
+        default:
             break;
         }
         return null;
