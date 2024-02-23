@@ -166,13 +166,13 @@ public class ECSClient implements IECSClient {
 
     private void removeNode() {
         ECSNode node = new ArrayList<>(occupiedNode.values()).get(0);
-        occupiedNode.remove(node.getNodeName());
-        availableNode.put(node.getNodeName(), node);
         int index = nodeRing.indexOf(node);
         nodeRing.remove(index);
         ECSNode updateNode = nodeRing.get(index == nodeRing.size() ? 0 : index);
         updateNode.setPredecessorHash(node.getNodeHashRange()[0]);
         awaitNode("remove", updateNode.getNodeSock().getLocalAddress().getHostAddress() + ":" + updateNode.getServerPort());
+        occupiedNode.remove(node.getNodeName());
+        availableNode.put(node.getNodeName(), node);
     }
 
     @Override
