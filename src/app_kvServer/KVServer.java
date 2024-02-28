@@ -32,6 +32,8 @@ public class KVServer extends Thread implements IKVServer {
 	final ReentrantLock serverLock = new ReentrantLock();
 	public String metadata = "";
 	public String[] keyRange = {"", ""};
+	boolean stopped = false;
+	boolean write_lock = false;
 
 	public KVServer(String bootstrapAddr, int bootstrapPort, int port, String dir) {
 		ecsAddr = bootstrapAddr;
@@ -184,6 +186,18 @@ public class KVServer extends Thread implements IKVServer {
 			}
 		} catch (NoSuchAlgorithmException ignored) {}
 		return transferFile;
+	}
+
+	boolean krSuccess(String key) {
+		try {
+			MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+			messageDigest.update(key.getBytes());
+			String keyHash = Hex.encodeHexString(messageDigest.digest());
+			return ((keyRange[0].compareTo(keyRange[1]) < 0 && keyHash.compareTo(keyRange[0]) > 0 && keyHash.compareTo(keyRange[1]) <= 0)
+				|| (keyRange[0].compareTo(keyRange[1]) > 0 && (keyHash.compareTo(keyRange[0]) > 0 || keyHash.compareTo(keyRange[1]) <= 0))) ? true : false;
+		} catch (NoSuchAlgorithmException ignored) {
+			return false;
+		}
 	}
 
 	@Override

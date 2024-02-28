@@ -102,6 +102,10 @@ public class KVClient implements IKVClient {
                         Message kvMessage = kvStore.put(key, "null");
                         if (kvMessage.getStatus() == StatusType.DELETE_ERROR)
                             perror("delete Error");
+                        else if (kvMessage.getStatus() == StatusType.SERVER_STOPPED)
+                            perror("Storage System Currently Offline... Please Try Again Later");
+                        else if (kvMessage.getStatus() == StatusType.SERVER_WRITE_LOCK)
+                            perror("Storage System Reconfiguring... Please Try Again");    
                         else {
                             System.out.println("delete Status: " + kvMessage.getStatus());
                             System.out.println("Deleted <key>: " + kvMessage.getKey());
@@ -122,6 +126,10 @@ public class KVClient implements IKVClient {
                         Message kvMessage = kvStore.put(key, val.toString());
                         if (kvMessage.getStatus() == StatusType.PUT_ERROR)
                             perror("put Error");
+                        else if (kvMessage.getStatus() == StatusType.SERVER_STOPPED)
+                            perror("Storage System Currently Offline... Please Try Again Later");
+                        else if (kvMessage.getStatus() == StatusType.SERVER_WRITE_LOCK)
+                            perror("Storage System Reconfiguring... Please Try Again");
                         else {
                             System.out.println("put Status: " + kvMessage.getStatus());
                             System.out.println("Inserted <key>: " + kvMessage.getKey());
@@ -147,12 +155,31 @@ public class KVClient implements IKVClient {
                     Message kvMessage = kvStore.get(token[1]);
                     if (kvMessage.getStatus() == StatusType.GET_ERROR)
                         System.out.println("key " + kvMessage.getKey() + " Does Not Exist!");
+                    else if (kvMessage.getStatus() == StatusType.SERVER_STOPPED)
+                        perror("Storage System Currently Offline... Please Try Again Later");
                     else {
                         System.out.println("Corresponding <value>: " + kvMessage.getValue());
                         System.out.println("get Status: " + kvMessage.getStatus());
                     }
                 } catch (Exception e) {
                     perror("get Failed");
+                    disconnect();
+                }
+            }
+            break;
+        case "keyrange":
+            if (token.length != 1)
+                perror("Too Many Arguments");
+            else if (kvStore == null || !kvStore.isConnected()) {
+                perror("Invalid Connection");
+                System.out.println(PROMPT + "connect <addr> <port>");
+            } else {
+                System.out.println("Retrieving keyrange...");
+                try {
+                    Message kvMessage = kvStore.keyrange();
+                    System.out.println(kvMessage.getValue());
+                } catch (Exception e) {
+                    perror("keyrange Failed");
                     disconnect();
                 }
             }

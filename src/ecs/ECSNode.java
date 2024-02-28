@@ -43,6 +43,10 @@ public class ECSNode implements IECSNode {
         return nodeSock;
     }
 
+    public String getServerAddr() {
+        return nodeSock.getLocalAddress().getHostAddress();
+    }
+
     public int getServerPort() {
         return serverPort;
     }

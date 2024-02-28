@@ -9,6 +9,10 @@ import java.io.InputStream;
 import java.net.UnknownHostException;
 import java.io.IOException;
 import java.util.HashSet;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+import org.apache.commons.codec.binary.Hex;
 
 import app_kvClient.KVClient;
 import shared.messages.Message;
@@ -17,8 +21,8 @@ import shared.messages.TextMessage;
 
 public class KVStore implements KVCommInterface {
 
-	private final String serverAddr;
-	private final int serverPort;
+	private String serverAddr;
+	private int serverPort;
 	private Socket clientSocket;
 	private OutputStream outputStream;
 	private InputStream inputStream;
@@ -26,6 +30,7 @@ public class KVStore implements KVCommInterface {
 //	private ObjectInputStream objectInputStream;
 	private Set<KVClient> clients;
 	private boolean connected = false;
+	private String metadata = "";
 	private static final int BUFFER_SIZE = 1024;
 	private static final int DROP_SIZE = 128 * 1024;
 
@@ -59,13 +64,47 @@ public class KVStore implements KVCommInterface {
 //				objectInputStream.close();
 			if (clientSocket != null)
 				clientSocket.close();
+			connected = false;
 		} catch (IOException ignored) {}
+	}
+
+	boolean krSuccess(String key, String krFrom, String krTo) {
+		try {
+			MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+			messageDigest.update(key.getBytes());
+			String keyHash = Hex.encodeHexString(messageDigest.digest());
+			return ((krFrom.compareTo(krTo) < 0 && keyHash.compareTo(krFrom) > 0 && keyHash.compareTo(krTo) <= 0)
+				|| (krFrom.compareTo(krTo) > 0 && (keyHash.compareTo(krFrom) > 0 || keyHash.compareTo(krTo) <= 0))) ? true : false;
+		} catch (NoSuchAlgorithmException ignored) {
+			return false;
+		}
+	}
+
+	private void updateConnection(String key) {
+		try {
+			disconnect();
+			for (String data : metadata.split(";")) {
+				if (krSuccess(key, data.split(",")[0], data.split(",")[1])) {
+					serverAddr = data.split(",")[2].split(":")[0];
+					serverPort = Integer.parseInt(data.split(",")[2].split(":")[1]);
+					connect();
+					break;
+				}
+			}
+		} catch (IOException | NumberFormatException ignored) {}
 	}
 
 	@Override
 	public Message put(String key, String value) throws Exception {
 		writeOutputStream(new TextMessage("put " + key + " " + value));
 		String[] token = readInputStream().getTextMessage().split("\\s+");
+		if (token[0].equals("SERVER_STOPPED") || token[0].equals("SERVER_WRITE_LOCK"))
+			return new Message(StatusType.valueOf(token[0]), "", "");
+		if (token[0].equals("SERVER_NOT_RESPONSIBLE")) {
+			metadata = token[1];
+			updateConnection(key);
+			return put(key, value);
+		}
 		StringBuilder val = new StringBuilder();
 		for (int i=2; i<token.length; ++i) {
 			val.append(token[i]);
@@ -81,6 +120,13 @@ public class KVStore implements KVCommInterface {
 	public Message get(String key) throws Exception {
 		writeOutputStream(new TextMessage("get " + key));
 		String[] token = readInputStream().getTextMessage().split("\\s+");
+		if (token[0].equals("SERVER_STOPPED"))
+			return new Message(StatusType.valueOf(token[0]), "", "");
+		if (token[0].equals("SERVER_NOT_RESPONSIBLE")) {
+			metadata = token[1];
+			updateConnection(key);
+			return get(key);
+		}
 		StringBuilder val = new StringBuilder();
 		for (int i=2; i<token.length; ++i) {
 			val.append(token[i]);
@@ -90,6 +136,13 @@ public class KVStore implements KVCommInterface {
 		return new Message(StatusType.valueOf(token[0]), token[1], val.toString());
 //		objectOutputStream.writeObject(new Message(StatusType.GET, key, ""));
 //		return (Message) objectInputStream.readObject();
+	}
+
+	public Message keyrange() throws Exception {
+		writeOutputStream(new TextMessage("keyrange"));
+		String[] token = readInputStream().getTextMessage().split("\\s+");
+		metadata = token[1];
+		return new Message(StatusType.valueOf(token[0]), "", token[1]);
 	}
 
 	public void addClient(KVClient client) {

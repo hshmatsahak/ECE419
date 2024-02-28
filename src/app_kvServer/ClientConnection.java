@@ -128,6 +128,12 @@ class ClientConnection implements Runnable {
     private TextMessage handleTextMsg(TextMessage msg) {
         String[] token = msg.getTextMessage().split("\\s+");
         if (token[0].equals("put") && token.length > 2) {
+            if (clientServer.stopped)
+                return new TextMessage("SERVER_STOPPED");
+            if (clientServer.write_lock)
+                return new TextMessage("SERVER_WRITE_LOCK");
+            if (!clientServer.krSuccess(token[1].toString()))
+                return new TextMessage("SERVER_NOT_RESPONSIBLE " + clientServer.metadata);
             StringBuilder val = new StringBuilder();
             for (int i=2; i<token.length; ++i) {
                 val.append(token[i]);
@@ -152,12 +158,18 @@ class ClientConnection implements Runnable {
                 }
             }
         } else if (token[0].equals("get") && token.length == 2) {
+            if (clientServer.stopped)
+                return new TextMessage("SERVER_STOPPED");
+            if (!clientServer.krSuccess(token[1].toString()))
+                return new TextMessage("SERVER_NOT_RESPONSIBLE " + clientServer.metadata);
             try {
                 String val = clientServer.getKV(token[1]);
                 return new TextMessage("GET_SUCCESS " + token[1] + " " + val);
             } catch (Exception e) {
                 return new TextMessage("GET_ERROR " + token[1]);
             }
+        } else if (token[0].equals("keyrange") && token.length == 1) {
+            return new TextMessage("KEYRANGE_SUCCESS " + clientServer.metadata);
         } else if (token[0].equals("transfer") && token.length > 2) {
             try {
                 StringBuilder val = new StringBuilder();

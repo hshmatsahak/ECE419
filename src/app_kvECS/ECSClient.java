@@ -135,7 +135,7 @@ public class ECSClient implements IECSClient {
                 }
             }
         }
-        awaitNode("add", node.getNodeSock().getLocalAddress().getHostAddress() + ":" + node.getServerPort());
+        awaitNode("add", node.getServerAddr() + ":" + node.getServerPort());
     }
 
     private void awaitNode(String msg, String listener) {
@@ -153,7 +153,7 @@ public class ECSClient implements IECSClient {
     private String getMetadata() {
         StringBuilder metadata = new StringBuilder();
         for (ECSNode node : nodeRing)
-            metadata.append(node.getNodeHashRange()[0] + "," + node.getNodeHashRange()[1] + "," + node.getNodeName() + ";");
+            metadata.append(node.getNodeHashRange()[0] + "," + node.getNodeHashRange()[1] + "," + node.getServerAddr() + ":" + node.getServerPort() + ";");
         return metadata.toString();
     }
 

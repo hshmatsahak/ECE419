@@ -48,8 +48,8 @@ class ECSConnection implements Runnable {
         case "add":
             for (String metadata : token[1].split(";")) {
                 String[] data = metadata.split(",");
-                if (data[2].equals(ecsSock.getLocalAddress().getHostAddress() + ":" + ecsSock.getLocalPort())) {
-                    if (!kvServer.keyRange.equals("") && !kvServer.keyRange[0].equals(data[0])) {
+                if (data[2].equals(ecsSock.getInetAddress().getHostAddress() + ":" + serverPort)) {
+                    if (!kvServer.keyRange[0].isEmpty() && !kvServer.keyRange[0].equals(data[0])) {
                         try {
                             Socket interServerConnection = new Socket(token[2].split(":")[0], Integer.parseInt(token[2].split(":")[1]));
                             OutputStream serverOutput = interServerConnection.getOutputStream();
@@ -72,10 +72,11 @@ class ECSConnection implements Runnable {
             }
             break;
         case "remove":
-            HashSet nodeName = new HashSet<String>();
+            String predecessorKeyRange = "";
             for (String metadata : token[1].split(";"))
-                nodeName.add(metadata.split(",")[2]);
-            if (!nodeName.contains(ecsSock.getLocalAddress().getHostAddress() + ":" + ecsSock.getLocalPort())) {
+                if (metadata.split(",")[2].equals(ecsSock.getInetAddress().getHostAddress() + ":" + serverPort))
+                    predecessorKeyRange = metadata.split(",")[0];
+            if (predecessorKeyRange.isEmpty()) {
                 try {
                     Socket interServerConnection = new Socket(token[2].split(":")[0], Integer.parseInt(token[2].split(":")[1]));
                     OutputStream serverOutput = interServerConnection.getOutputStream();
@@ -91,8 +92,7 @@ class ECSConnection implements Runnable {
                 } catch (NumberFormatException | IOException ignored) {}
             }
             kvServer.metadata = token[1];
-            kvServer.keyRange[0] = "";
-            kvServer.keyRange[1] = "";
+            kvServer.keyRange[0] = predecessorKeyRange;
             return new TextMessage("success");
         default:
             break;
