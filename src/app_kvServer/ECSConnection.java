@@ -76,32 +76,35 @@ class ECSConnection implements Runnable {
             break;
         case "remove":
             String predecessorKeyRange = "";
-            for (String metadata : token[1].split(";"))
-                if (metadata.split(",")[2].equals(ecsSock.getInetAddress().getHostAddress() + ":" + serverPort))
-                    predecessorKeyRange = metadata.split(",")[0];
-            if (predecessorKeyRange.isEmpty()) {
-                kvServer.write_lock = true;
-                try {
-                    Socket interServerConnection = new Socket(token[2].split(":")[0], Integer.parseInt(token[2].split(":")[1]));
-                    OutputStream serverOutput = interServerConnection.getOutputStream();
-                    InputStream serverInput = interServerConnection.getInputStream();
-                    ArrayList<File> transferFile = kvServer.transferKeyRange(kvServer.keyRange[0], kvServer.keyRange[1]);
-                    for (File file : transferFile) {
-                        Scanner fileScanner = new Scanner(file);
-                        writeOutputStream(new TextMessage("transfer " + file.getName() + " " + fileScanner.nextLine()), serverOutput);
-                        fileScanner.close();
-                        file.delete();
-                        readInputStream(serverInput);
-                    }
-                    interServerConnection.close();
-                } catch (NumberFormatException | IOException ignored) {}
-            }
-            kvServer.metadata = token[1];
+            if (token.length == 3) {
+                for (String metadata : token[1].split(";"))
+                    if (metadata.split(",")[2].equals(ecsSock.getInetAddress().getHostAddress() + ":" + serverPort))
+                        predecessorKeyRange = metadata.split(",")[0];
+                if (predecessorKeyRange.isEmpty()) {
+                    kvServer.write_lock = true;
+                    try {
+                        Socket interServerConnection = new Socket(token[2].split(":")[0], Integer.parseInt(token[2].split(":")[1]));
+                        OutputStream serverOutput = interServerConnection.getOutputStream();
+                        InputStream serverInput = interServerConnection.getInputStream();
+                        ArrayList<File> transferFile = kvServer.transferKeyRange(kvServer.keyRange[0], kvServer.keyRange[1]);
+                        for (File file : transferFile) {
+                            Scanner fileScanner = new Scanner(file);
+                            writeOutputStream(new TextMessage("transfer " + file.getName() + " " + fileScanner.nextLine()), serverOutput);
+                            fileScanner.close();
+                            file.delete();
+                            readInputStream(serverInput);
+                        }
+                        interServerConnection.close();
+                    } catch (NumberFormatException | IOException ignored) {}
+                }
+                kvServer.metadata = token[1];
+            } else
+                kvServer.metadata = "";
             kvServer.keyRange[0] = predecessorKeyRange;
             kvServer.write_lock = false;
             return new TextMessage("success");
         case "metadata":
-            kvServer.metadata = token[1];
+            kvServer.metadata = token.length == 2 ? token[1] : "";
             return new TextMessage("success");
         case "start":
             kvServer.stopped = false;

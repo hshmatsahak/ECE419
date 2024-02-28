@@ -194,9 +194,13 @@ public class ECSClient implements IECSClient {
         ECSNode node = new ArrayList<>(occupiedNode.values()).get(0);
         int index = nodeRing.indexOf(node);
         nodeRing.remove(index);
-        ECSNode updateNode = nodeRing.get(index == nodeRing.size() ? 0 : index);
-        updateNode.setPredecessorHash(node.getNodeHashRange()[0]);
-        awaitNode("remove", updateNode.getNodeSock().getLocalAddress().getHostAddress() + ":" + updateNode.getServerPort());
+        if (nodeRing.isEmpty())
+            awaitNode("remove", "");
+        else {
+            ECSNode updateNode = nodeRing.get(index == nodeRing.size() ? 0 : index);
+            updateNode.setPredecessorHash(node.getNodeHashRange()[0]);
+            awaitNode("remove", updateNode.getNodeSock().getLocalAddress().getHostAddress() + ":" + updateNode.getServerPort());
+        }
         occupiedNode.remove(node.getNodeName());
         availableNode.put(node.getNodeName(), node);
         setAvailableNodesMetadata();
