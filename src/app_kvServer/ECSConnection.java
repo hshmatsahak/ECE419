@@ -50,6 +50,7 @@ class ECSConnection implements Runnable {
                 String[] data = metadata.split(",");
                 if (data[2].equals(ecsSock.getInetAddress().getHostAddress() + ":" + serverPort)) {
                     if (!kvServer.keyRange[0].isEmpty() && !kvServer.keyRange[0].equals(data[0])) {
+                        kvServer.write_lock = true;
                         try {
                             Socket interServerConnection = new Socket(token[2].split(":")[0], Integer.parseInt(token[2].split(":")[1]));
                             OutputStream serverOutput = interServerConnection.getOutputStream();
@@ -59,6 +60,7 @@ class ECSConnection implements Runnable {
                                 Scanner fileScanner = new Scanner(file);
                                 writeOutputStream(new TextMessage("transfer " + file.getName() + " " + fileScanner.nextLine()), serverOutput);
                                 fileScanner.close();
+                                file.delete();
                                 readInputStream(serverInput);
                             }
                             interServerConnection.close();
@@ -67,6 +69,7 @@ class ECSConnection implements Runnable {
                     kvServer.metadata = token[1];
                     kvServer.keyRange[0] = data[0];
                     kvServer.keyRange[1] = data[1];
+                    kvServer.write_lock = false;
                     return new TextMessage("success");
                 }
             }
@@ -87,6 +90,7 @@ class ECSConnection implements Runnable {
                         Scanner fileScanner = new Scanner(file);
                         writeOutputStream(new TextMessage("transfer " + file.getName() + " " + fileScanner.nextLine()), serverOutput);
                         fileScanner.close();
+                        file.delete();
                         readInputStream(serverInput);
                     }
                     interServerConnection.close();

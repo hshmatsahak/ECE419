@@ -20,6 +20,7 @@ public class ECSClient implements IECSClient {
     private ArrayList<ECSNode> nodeRing;
     private Map<String, ECSNode> occupiedNode;
     private boolean quit = false;
+    private String bootstrapServer = "";
 
     public static void main(String[] args) {
         if (args.length == 2 && args[0].equals("-p")) {
@@ -122,6 +123,8 @@ public class ECSClient implements IECSClient {
 
     private void addNode() {
         ECSNode node = new ArrayList<>(availableNode.values()).get(0);
+        if (occupiedNode.isEmpty() && !bootstrapServer.isEmpty())
+            node = availableNode.get(bootstrapServer);
         availableNode.remove(node.getNodeName());
         occupiedNode.put(node.getNodeName(), node);
         String nodeHash = node.getNodeHashRange()[1];
@@ -207,6 +210,10 @@ public class ECSClient implements IECSClient {
     private void ecsStop() {
         occupiedNode.forEach((k, v) -> {try {v.writeOutputStream(new TextMessage("stop")); v.readInputStream();} catch (IOException ignored) {}});
         availableNode.forEach((k, v) -> {try {v.writeOutputStream(new TextMessage("stop")); v.readInputStream();} catch (IOException ignored) {}});
+        if (occupiedNode.size() != 1)
+            removeNodes(occupiedNode.size() - 1);
+        bootstrapServer = nodeRing.get(0).getNodeName();
+        removeNode();
     }
 
     @Override
