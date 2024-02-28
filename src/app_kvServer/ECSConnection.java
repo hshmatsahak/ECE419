@@ -77,6 +77,7 @@ class ECSConnection implements Runnable {
                 if (metadata.split(",")[2].equals(ecsSock.getInetAddress().getHostAddress() + ":" + serverPort))
                     predecessorKeyRange = metadata.split(",")[0];
             if (predecessorKeyRange.isEmpty()) {
+                kvServer.write_lock = true;
                 try {
                     Socket interServerConnection = new Socket(token[2].split(":")[0], Integer.parseInt(token[2].split(":")[1]));
                     OutputStream serverOutput = interServerConnection.getOutputStream();
@@ -93,6 +94,16 @@ class ECSConnection implements Runnable {
             }
             kvServer.metadata = token[1];
             kvServer.keyRange[0] = predecessorKeyRange;
+            kvServer.write_lock = false;
+            return new TextMessage("success");
+        case "metadata":
+            kvServer.metadata = token[1];
+            return new TextMessage("success");
+        case "start":
+            kvServer.stopped = false;
+            return new TextMessage("success");
+        case "stop":
+            kvServer.stopped = true;
             return new TextMessage("success");
         default:
             break;

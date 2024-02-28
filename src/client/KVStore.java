@@ -73,7 +73,7 @@ public class KVStore implements KVCommInterface {
 			MessageDigest messageDigest = MessageDigest.getInstance("MD5");
 			messageDigest.update(key.getBytes());
 			String keyHash = Hex.encodeHexString(messageDigest.digest());
-			return ((krFrom.compareTo(krTo) < 0 && keyHash.compareTo(krFrom) > 0 && keyHash.compareTo(krTo) <= 0)
+			return (krFrom.equals(krTo) || (krFrom.compareTo(krTo) < 0 && keyHash.compareTo(krFrom) > 0 && keyHash.compareTo(krTo) <= 0)
 				|| (krFrom.compareTo(krTo) > 0 && (keyHash.compareTo(krFrom) > 0 || keyHash.compareTo(krTo) <= 0))) ? true : false;
 		} catch (NoSuchAlgorithmException ignored) {
 			return false;

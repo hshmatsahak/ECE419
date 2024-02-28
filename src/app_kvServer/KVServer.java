@@ -32,7 +32,7 @@ public class KVServer extends Thread implements IKVServer {
 	final ReentrantLock serverLock = new ReentrantLock();
 	public String metadata = "";
 	public String[] keyRange = {"", ""};
-	boolean stopped = false;
+	boolean stopped = true;
 	boolean write_lock = false;
 
 	public KVServer(String bootstrapAddr, int bootstrapPort, int port, String dir) {
@@ -179,7 +179,7 @@ public class KVServer extends Thread implements IKVServer {
 			for (File file : new File(storeDir).listFiles()) {
 				messageDigest.update(file.getName().getBytes());
 				String keyHash = Hex.encodeHexString(messageDigest.digest());
-				if ((krFrom.compareTo(krTo) < 0 && keyHash.compareTo(krFrom) > 0 && keyHash.compareTo(krTo) <= 0)
+				if (krFrom.equals(krTo) || (krFrom.compareTo(krTo) < 0 && keyHash.compareTo(krFrom) > 0 && keyHash.compareTo(krTo) <= 0)
 						|| (krFrom.compareTo(krTo) > 0 && (keyHash.compareTo(krFrom) > 0 || keyHash.compareTo(krTo) <= 0))) {
 					transferFile.add(file);
 				}
@@ -189,11 +189,13 @@ public class KVServer extends Thread implements IKVServer {
 	}
 
 	boolean krSuccess(String key) {
+		if (keyRange[0].isEmpty())
+			return false;
 		try {
 			MessageDigest messageDigest = MessageDigest.getInstance("MD5");
 			messageDigest.update(key.getBytes());
 			String keyHash = Hex.encodeHexString(messageDigest.digest());
-			return ((keyRange[0].compareTo(keyRange[1]) < 0 && keyHash.compareTo(keyRange[0]) > 0 && keyHash.compareTo(keyRange[1]) <= 0)
+			return (keyRange[0].equals(keyRange[1]) || (keyRange[0].compareTo(keyRange[1]) < 0 && keyHash.compareTo(keyRange[0]) > 0 && keyHash.compareTo(keyRange[1]) <= 0)
 				|| (keyRange[0].compareTo(keyRange[1]) > 0 && (keyHash.compareTo(keyRange[0]) > 0 || keyHash.compareTo(keyRange[1]) <= 0))) ? true : false;
 		} catch (NoSuchAlgorithmException ignored) {
 			return false;

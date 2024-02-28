@@ -96,6 +96,18 @@ public class ECSClient implements IECSClient {
                 System.out.println("ECS> Error: Invalid Node Count!");
             }
             break;
+        case "start":
+            if (token.length != 1)
+                System.out.println("ECS> Error: Invalid Argument Count!");
+            else
+                ecsStart();
+            break;
+        case "stop":
+            if (token.length != 1)
+                System.out.println("ECS> Error: Invalid Argument Count!");
+            else
+                ecsStop();
+            break;
         default:
             break;
         }
@@ -136,17 +148,28 @@ public class ECSClient implements IECSClient {
             }
         }
         awaitNode("add", node.getServerAddr() + ":" + node.getServerPort());
+        setAvailableNodesMetadata();
     }
 
     private void awaitNode(String msg, String listener) {
-        TextMessage addMsg = new TextMessage(msg + " " + getMetadata() + " " + listener);
+        TextMessage awaitMsg = new TextMessage(msg + " " + getMetadata() + " " + listener);
         for (ECSNode node : occupiedNode.values()) {
             try {
-                node.writeOutputStream(addMsg);
+                node.writeOutputStream(awaitMsg);
                 node.readInputStream();
             } catch (IOException ioe) {
                 System.exit(1);
             }
+        }
+    }
+
+    private void setAvailableNodesMetadata() {
+        TextMessage metadataMsg = new TextMessage("metadata " + getMetadata());
+        for (ECSNode node : availableNode.values()) {
+            try {
+                node.writeOutputStream(metadataMsg);
+                node.readInputStream();
+            } catch (IOException ignored) {}
         }
     }
 
@@ -173,6 +196,17 @@ public class ECSClient implements IECSClient {
         awaitNode("remove", updateNode.getNodeSock().getLocalAddress().getHostAddress() + ":" + updateNode.getServerPort());
         occupiedNode.remove(node.getNodeName());
         availableNode.put(node.getNodeName(), node);
+        setAvailableNodesMetadata();
+    }
+
+    private void ecsStart() {
+        occupiedNode.forEach((k, v) -> {try {v.writeOutputStream(new TextMessage("start")); v.readInputStream();} catch (IOException ignored) {}});
+        availableNode.forEach((k, v) -> {try {v.writeOutputStream(new TextMessage("start")); v.readInputStream();} catch (IOException ignored) {}});
+    }
+
+    private void ecsStop() {
+        occupiedNode.forEach((k, v) -> {try {v.writeOutputStream(new TextMessage("stop")); v.readInputStream();} catch (IOException ignored) {}});
+        availableNode.forEach((k, v) -> {try {v.writeOutputStream(new TextMessage("stop")); v.readInputStream();} catch (IOException ignored) {}});
     }
 
     @Override
