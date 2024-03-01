@@ -119,6 +119,7 @@ public class ECSClient implements IECSClient {
             System.out.println("ECS> Error: Too Many Nodes!");
         else
             IntStream.range(0, count).forEach(i -> addNode());
+        System.out.println("ECS metadata> " + getMetadata());
     }
 
     private void addNode() {
@@ -164,6 +165,14 @@ public class ECSClient implements IECSClient {
                 System.exit(1);
             }
         }
+        for (ECSNode node : occupiedNode.values()) {
+            try {
+                node.writeOutputStream(new TextMessage(msg + "_success"));
+                node.readInputStream();
+            } catch (IOException ioe) {
+                System.exit(1);
+            }
+        }
     }
 
     private void setAvailableNodesMetadata() {
@@ -188,6 +197,7 @@ public class ECSClient implements IECSClient {
             System.out.println("ECS> Error: Too Many Nodes!");
         else
             IntStream.range(0, count).forEach(i -> removeNode());
+        System.out.println("ECS metadata> " + getMetadata());
     }
 
     private void removeNode() {
