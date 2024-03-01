@@ -25,7 +25,12 @@ class ServerConnection implements Runnable {
         while (online) {
             try {
                 Socket serverSocket = ecsServerSocket.accept();
-                ecsClient.insertNode(new ECSNode(serverSocket, Integer.parseInt(readInputStream(serverSocket).getTextMessage())));
+                String[] serverMsg = readInputStream(serverSocket).getTextMessage().split("\\s+");
+                if (serverMsg.length != 1) {
+                    ecsClient.shutdownNode(serverSocket.getInetAddress().getHostAddress(), Integer.parseInt(serverMsg[1]));
+                    writeOutputStream(serverSocket, new TextMessage("success"));
+                } else
+                    ecsClient.insertNode(new ECSNode(serverSocket, Integer.parseInt(serverMsg[0])));
             } catch (NumberFormatException | IOException ignored) {}
         }
     }
@@ -80,5 +85,11 @@ class ServerConnection implements Runnable {
             System.arraycopy(byteBuffer, 0, byteMessage, byteMsg.length, i);
         }
         return new TextMessage(byteMessage);
+    }
+
+    public void writeOutputStream(Socket sock, TextMessage msg) throws IOException {
+        byte[] byteMsg = msg.getByteMessage();
+        sock.getOutputStream().write(byteMsg, 0, byteMsg.length);
+        sock.getOutputStream().flush();
     }
 }

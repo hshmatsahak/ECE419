@@ -206,6 +206,31 @@ public class ECSClient implements IECSClient {
         setAvailableNodesMetadata();
     }
 
+    public void shutdownNode(String addr, int port) {
+        for (ECSNode node : nodeRing) {
+            if (!addr.equals(node.getServerAddr()) || port != node.getServerPort())
+                continue;
+            int index = nodeRing.indexOf(node);
+            nodeRing.remove(index);
+            if (nodeRing.isEmpty())
+                awaitNode("remove", "");
+            else {
+                ECSNode updateNode = nodeRing.get(index == nodeRing.size() ? 0 : index);
+                updateNode.setPredecessorHash(node.getNodeHashRange()[0]);
+                awaitNode("remove", updateNode.getNodeSock().getLocalAddress().getHostAddress() + ":" + updateNode.getServerPort());
+            }
+            occupiedNode.remove(node.getNodeName());
+            setAvailableNodesMetadata();
+            break;
+        }
+        for (ECSNode node : availableNode.values()) {
+            if (!addr.equals(node.getServerAddr()) || port != node.getServerPort())
+                continue;
+            availableNode.remove(node.getNodeName());
+            break;
+        }
+    }
+
     private void ecsStart() {
         occupiedNode.forEach((k, v) -> {try {v.writeOutputStream(new TextMessage("start")); v.readInputStream();} catch (IOException ignored) {}});
         availableNode.forEach((k, v) -> {try {v.writeOutputStream(new TextMessage("start")); v.readInputStream();} catch (IOException ignored) {}});

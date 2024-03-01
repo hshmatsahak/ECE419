@@ -11,10 +11,13 @@ import java.net.BindException;
 import java.util.ArrayList;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.io.InputStream;
 
 import org.apache.log4j.Logger;
 import org.apache.log4j.Level;
 import org.apache.commons.codec.binary.Hex;
+
+import shared.messages.TextMessage;
 
 import logger.LogSetup;
 
@@ -34,6 +37,8 @@ public class KVServer extends Thread implements IKVServer {
 	public String[] keyRange = {"", ""};
 	boolean stopped = true;
 	boolean write_lock = false;
+	private static final int BUFFER_SIZE = 1024;
+	private static final int DROP_SIZE = 128 * BUFFER_SIZE;
 
 	public KVServer(String bootstrapAddr, int bootstrapPort, int port, String dir) {
 		ecsAddr = bootstrapAddr;
@@ -47,10 +52,18 @@ public class KVServer extends Thread implements IKVServer {
 	}
 
 	public static void main(String[] args) {
-		handleArgs(args);
+		KVServer server = handleArgs(args);
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			try {
+				Socket shutdownSock = new Socket(server.ecsAddr, server.ecsPort);
+				writeOutputStream(shutdownSock, new TextMessage("shutdown " + server.serverPort));
+				readInputStream(shutdownSock);
+			} catch (IOException ignored) {}
+		}));
+		server.start();
 	}
 
-	private static void handleArgs(String[] args) {
+	private static KVServer handleArgs(String[] args) {
 		if (args.length == 0)
 			pexit("No Arguments");
 		String bootstrapAddr = null;
@@ -140,7 +153,7 @@ public class KVServer extends Thread implements IKVServer {
 			e.printStackTrace();
 			pexit("Initialize Server Log");
 		}
-		new KVServer(bootstrapAddr, bootstrapPort, port, storeDir).start();
+		return new KVServer(bootstrapAddr, bootstrapPort, port, storeDir);
 	}
 
 	/**
@@ -346,4 +359,48 @@ public class KVServer extends Thread implements IKVServer {
 		System.out.println(PROMPT + "Error: " + str + "!");
 		System.exit(1);
 	}
+
+	private static TextMessage readInputStream(Socket sock) throws IOException {
+		InputStream inputStream = sock.getInputStream();
+		byte read = (byte) inputStream.read();
+		boolean drop = false;
+		int i = 0;
+		byte[] byteMsg = null;
+		byte[] byteMessage = null;
+		byte[] byteBuffer = new byte[BUFFER_SIZE];
+		while (read != -1 && read != 0x0A && !drop) {
+			if (i == BUFFER_SIZE) {
+				if (byteMsg == null) {
+					byteMessage = new byte[BUFFER_SIZE];
+					System.arraycopy(byteBuffer, 0, byteMessage, 0, BUFFER_SIZE);
+				} else {
+					byteMessage = new byte[byteMsg.length + BUFFER_SIZE];
+					System.arraycopy(byteMsg, 0, byteMessage, 0, byteMsg.length);
+					System.arraycopy(byteBuffer, 0, byteMessage, byteMsg.length, BUFFER_SIZE);
+				}
+				byteMsg = byteMessage;
+				byteBuffer = new byte[BUFFER_SIZE];
+				i = 0;
+			}
+			byteBuffer[i++] = read;
+			if (byteMsg != null && byteMessage.length + i == DROP_SIZE)
+				drop = true;
+			read = (byte) inputStream.read();
+		}
+		if (byteMsg == null) {
+			byteMessage = new byte[i];
+			System.arraycopy(byteBuffer, 0, byteMessage, 0, i);
+		} else {
+			byteMessage = new byte[byteMsg.length + i];
+			System.arraycopy(byteMsg, 0, byteMessage, 0, byteMsg.length);
+			System.arraycopy(byteBuffer, 0, byteMessage, byteMsg.length, i);
+		}
+		return new TextMessage(byteMessage);
+	}
+
+	public static void writeOutputStream(Socket sock, TextMessage msg) throws IOException {
+        byte[] byteMsg = msg.getByteMessage();
+        sock.getOutputStream().write(byteMsg, 0, byteMsg.length);
+        sock.getOutputStream().flush();
+    }
 }
