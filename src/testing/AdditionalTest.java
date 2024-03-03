@@ -1,6 +1,7 @@
 package testing;
 
 import java.util.stream.IntStream;
+import java.util.ArrayList;
 
 import org.junit.Test;
 
@@ -185,5 +186,58 @@ public class AdditionalTest extends TestCase {
         KVStore kvClient = new KVStore("localhost", 50000);
         KVStore kvClient_1 = new KVStore("localhost", 50001);
         runTestDelete(kvClient, kvClient_1);
+    }
+
+    @Test
+    public void testPerf_2() {
+        runTestPerf(2);
+    }
+
+    @Test
+    public void testPerf_4() {
+        runTestPerf(4);
+    }
+
+    @Test
+    public void testPerf_8() {
+        runTestPerf(8);
+    }
+
+    private void runTestPerf(int serverCount) {
+        KVStore[] kvClient = new KVStore[8];
+        IntStream.range(0, kvClient.length).forEach(i -> {
+            kvClient[i] = new KVStore("localhost", 50000 + i % serverCount);
+            try {kvClient[i].connect();} catch (Exception ignored) {}
+        });
+        runTestPerf(kvClient, 2);
+        runTestPerf(kvClient, 4);
+        runTestPerf(kvClient, 8);
+    }
+
+    private void runTestPerf(KVStore[] kvClient, int clientCount) {
+        Thread[] put = new Thread[clientCount];
+        IntStream.range(0, clientCount).forEach(i ->
+            put[i] = new Thread(() -> runTestPut(kvClient[i], i*1000, (i+1)*1000))
+        );
+        long time = System.currentTimeMillis();
+        runTestPerf(put);
+        System.out.println((System.currentTimeMillis() - time));
+        Thread[] get = new Thread[clientCount];
+        IntStream.range(0, clientCount).forEach(i ->
+            get[i] = new Thread(() -> runTestGet(kvClient[i], i*1000, (i+1)*1000))
+        );
+        time = System.currentTimeMillis();
+        runTestPerf(get);
+        System.out.println((System.currentTimeMillis() - time));
+        Thread[] delete = new Thread[clientCount];
+        IntStream.range(0, clientCount).forEach(i ->
+            delete[i] = new Thread(() -> runTestDelete(kvClient[i], i*1000, (i+1)*1000))
+        );
+        runTestPerf(delete);
+    }
+
+    private void runTestPerf(Thread[] t) {
+        IntStream.range(0, t.length).forEach(i -> t[i].start());
+        IntStream.range(0, t.length).forEach(i -> {try {t[i].join();} catch (Exception ignored) {}});
     }
 }
