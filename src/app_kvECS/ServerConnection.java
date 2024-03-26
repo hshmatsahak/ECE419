@@ -27,8 +27,10 @@ class ServerConnection implements Runnable {
                 Socket serverSocket = ecsServerSocket.accept();
                 String[] serverMsg = readInputStream(serverSocket).getTextMessage().split("\\s+");
                 if (serverMsg.length != 1) {
-                    ecsClient.shutdownNode(serverSocket.getInetAddress().getHostAddress(), Integer.parseInt(serverMsg[1]));
-                    writeOutputStream(serverSocket, new TextMessage("success"));
+                    serverSocket.setSoTimeout(1*1000);
+                    synchronized (ecsClient.heartbeat) {ecsClient.heartbeat.put(serverMsg[1], serverSocket);}
+                    // ecsClient.shutdownNode(serverSocket.getInetAddress().getHostAddress(), Integer.parseInt(serverMsg[1]));
+                    // writeOutputStream(serverSocket, new TextMessage("success"));
                 } else
                     ecsClient.insertNode(new ECSNode(serverSocket, Integer.parseInt(serverMsg[0])));
             } catch (NumberFormatException | IOException ignored) {}
@@ -38,6 +40,7 @@ class ServerConnection implements Runnable {
     private boolean initServerConnection() {
         System.out.print("ECS> Initializing... ");
         try {
+            new Thread(new ECSHeartbeat(ecsClient)).start();
             ecsServerSocket = new ServerSocket(ecsClient.ecsPort);
             System.out.println("Online! Port " + ecsClient.ecsPort);
             return true;

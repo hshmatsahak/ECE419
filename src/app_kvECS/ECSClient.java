@@ -8,6 +8,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.util.stream.IntStream;
+import java.net.Socket;
 
 import ecs.IECSNode;
 import ecs.ECSNode;
@@ -21,6 +22,7 @@ public class ECSClient implements IECSClient {
     private Map<String, ECSNode> occupiedNode;
     private boolean quit = false;
     private String bootstrapServer = "";
+    volatile Map<String, Socket> heartbeat;
 
     public static void main(String[] args) {
         if (args.length == 2 && args[0].equals("-p")) {
@@ -49,6 +51,7 @@ public class ECSClient implements IECSClient {
         availableNode = new HashMap<>();
         nodeRing = new ArrayList<>();
         occupiedNode = new HashMap<>();
+        heartbeat = new HashMap<>();
     }
 
     public void insertNode(ECSNode node) {

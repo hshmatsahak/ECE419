@@ -63,13 +63,13 @@ public class KVServer extends Thread implements IKVServer {
 
 	public static void main(String[] args) {
 		KVServer server = handleArgs(args);
-		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-			try {
-				Socket shutdownSock = new Socket(server.ecsAddr, server.ecsPort);
-				writeOutputStream(shutdownSock, new TextMessage("shutdown " + server.serverPort));
-				readInputStream(shutdownSock);
-			} catch (IOException ignored) {}
-		}));
+		// Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+		// 	try {
+		// 		Socket shutdownSock = new Socket(server.ecsAddr, server.ecsPort);
+		// 		writeOutputStream(shutdownSock, new TextMessage("shutdown " + server.serverPort));
+		// 		readInputStream(shutdownSock);
+		// 	} catch (IOException ignored) {}
+		// }));
 		server.start();
 	}
 

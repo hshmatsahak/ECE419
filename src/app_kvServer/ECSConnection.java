@@ -24,6 +24,7 @@ class ECSConnection implements Runnable {
     private ArrayList<File> transferFile = new ArrayList<>();
     private String metadata = "";
     private String[] keyRange = {"", ""};
+    private Socket heartbeatSock;
 
     ECSConnection(KVServer server, Socket sock, int port) throws IOException {
         kvServer = server;
@@ -36,6 +37,9 @@ class ECSConnection implements Runnable {
     public void run() {
         try {
             writeOutputStream(new TextMessage(Integer.toString(serverPort)), outputStream);
+            heartbeatSock = new Socket(ecsSock.getInetAddress(), ecsSock.getPort());
+            new Thread(new ServerHeartbeat(heartbeatSock)).start();
+            writeOutputStream(new TextMessage("heartbeat 127.0.0.1:" + serverPort), heartbeatSock.getOutputStream());
         } catch (IOException ignored) {}
         while (true) {
             try {
