@@ -53,6 +53,8 @@ class ECSConnection implements Runnable {
             for (String newMetadata : token[1].split(";")) {
                 String[] data = newMetadata.split(",");
                 if (data[2].equals(ecsSock.getInetAddress().getHostAddress() + ":" + serverPort)) {
+                    kvServer.cleanReplicaDirectory(1);
+                    kvServer.cleanReplicaDirectory(2);
                     if (!kvServer.keyRange[0].isEmpty() && !kvServer.keyRange[0].equals(data[0])) {
                         kvServer.write_lock = true;
                         try {
@@ -97,6 +99,7 @@ class ECSConnection implements Runnable {
             }
             try {
                 if (server.length == 1) {
+                    metadata = "";
                     kvServer.write_lock = false;
                     return new TextMessage("success");
                 }
@@ -112,6 +115,7 @@ class ECSConnection implements Runnable {
                 }
                 replicaSock.close();
                 if (server.length == 2) {
+                    metadata = "";
                     kvServer.write_lock = false;
                     return new TextMessage("success");
                 }
@@ -132,6 +136,8 @@ class ECSConnection implements Runnable {
         case "remove":
             String predecessorKeyRange = "";
             if (token.length == 3) {
+                kvServer.cleanReplicaDirectory(1);
+                kvServer.cleanReplicaDirectory(2);
                 for (String newMetadata : token[1].split(";"))
                     if (newMetadata.split(",")[2].equals(ecsSock.getInetAddress().getHostAddress() + ":" + serverPort))
                         predecessorKeyRange = newMetadata.split(",")[0];
@@ -160,9 +166,50 @@ class ECSConnection implements Runnable {
             transferFile.forEach(file -> file.delete());
             transferFile.clear();
             kvServer.metadata = metadata;
-            metadata = "";
             kvServer.keyRange[0] = keyRange[0];
             keyRange[0] = "";
+            replica = new String[2];
+            server = metadata.split(";");
+            for (int i = 0; i < server.length; ++i) {
+                if (server[i].isEmpty()) break;
+                if (!server[i].split(",")[2].equals("127.0.0.1:" + serverPort)) continue;
+                if (server.length > 1) replica[0] = (i+1 == server.length) ? server[0].split(",")[2] : server[i+1].split(",")[2];
+                if (server.length <= 2) break;
+                if (i+1 == server.length) replica[1] = server[1].split(",")[2];
+                else if (i+2 == server.length) replica[1] = server[0].split(",")[2];
+                else replica[1] = server[i+2].split(",")[2];
+                break;
+            }
+            try {
+                if (server.length == 1) {
+                    metadata = "";
+                    kvServer.write_lock = false;
+                    return new TextMessage("success");
+                }
+                Socket replicaSock = new Socket(replica[0].split(":")[0], Integer.parseInt(replica[0].split(":")[1]));;
+                File[] coordinatorFile = kvServer.getCoordinatorFile();
+                for (File file : coordinatorFile) {
+                    Scanner fileScanner = new Scanner(file);
+                    writeOutputStream(new TextMessage("transfer_replica_1 " + file.getName() + " " + fileScanner.nextLine()), replicaSock.getOutputStream());
+                    fileScanner.close();
+                    readInputStream(replicaSock.getInputStream());
+                }
+                replicaSock.close();
+                if (server.length == 2) {
+                    metadata = "";
+                    kvServer.write_lock = false;
+                    return new TextMessage("success");
+                }
+                replicaSock = new Socket(replica[1].split(":")[0], Integer.parseInt(replica[1].split(":")[1]));
+                for (File file : coordinatorFile) {
+                    Scanner fileScanner = new Scanner(file);
+                    writeOutputStream(new TextMessage("transfer_replica_2 " + file.getName() + " " + fileScanner.nextLine()), replicaSock.getOutputStream());
+                    fileScanner.close();
+                    readInputStream(replicaSock.getInputStream());
+                }
+                replicaSock.close();
+            } catch (IOException | NumberFormatException ignored) {}
+            metadata = "";
             kvServer.write_lock = false;
             return new TextMessage("success");
         case "metadata":
