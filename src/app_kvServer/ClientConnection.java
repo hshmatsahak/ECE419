@@ -157,6 +157,23 @@ class ClientConnection implements Runnable {
                     return new TextMessage("PUT_ERROR " + token[1] + " " + val);
                 }
             }
+        } else if (token[0].equals("put_replica_1") || token[0].equals("put_replica_2")) {
+            if (clientServer.stopped)
+                return new TextMessage("SERVER_STOPPED");
+            if (clientServer.write_lock)
+                return new TextMessage("SERVER_WRITE_LOCK");
+            try {
+                StringBuilder val = new StringBuilder();
+                for (int i=2; i<token.length; ++i) {
+                    val.append(token[i]);
+                    if (i != token.length - 1)
+                        val.append(" ");
+                }
+                clientServer.putKV(token[1], val.toString(), token[0].equals("put_replica_1") ? "replica_1" : "replica_2");
+                return new TextMessage("success");
+            } catch (Exception ignored) {
+                return new TextMessage("failed");
+            }
         } else if (token[0].equals("get") && token.length == 2) {
             if (clientServer.stopped)
                 return new TextMessage("SERVER_STOPPED");
@@ -179,6 +196,23 @@ class ClientConnection implements Runnable {
                         val.append(" ");
                 }
                 clientServer.putKV(token[1], val.toString());
+                return new TextMessage("success");
+            } catch (Exception ignored) {
+                return new TextMessage("failed");
+            }
+        } else if (token[0].equals("transfer_replica_1") || token[0].equals("transfer_replica_2")) {
+            if (token.length == 1) {
+                clientServer.cleanReplicaDirectory(token[0].equals("transfer_replica_1") ? 1 : 2);
+                return new TextMessage("success");
+            }
+            try {
+                StringBuilder val = new StringBuilder();
+                for (int i=2; i<token.length; ++i) {
+                    val.append(token[i]);
+                    if (i != token.length - 1)
+                        val.append(" ");
+                }
+                clientServer.putKV(token[1], val.toString(), token[0].equals("transfer_replica_1") ? "replica_1" : "replica_2");
                 return new TextMessage("success");
             } catch (Exception ignored) {
                 return new TextMessage("failed");

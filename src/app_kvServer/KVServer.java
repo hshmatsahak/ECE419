@@ -8,6 +8,7 @@ import java.util.Scanner;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.BindException;
+import java.util.List;
 import java.util.ArrayList;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -49,6 +50,15 @@ public class KVServer extends Thread implements IKVServer {
 		if (!dirFile.exists())
 			dirFile.mkdir();
 		serverStorePath = storeDir + "/";
+		dirFile = new File(serverStorePath + "coordinator");
+		if (!dirFile.exists())
+			dirFile.mkdir();
+		dirFile = new File(serverStorePath + "replica_1");
+		if (!dirFile.exists())
+			dirFile.mkdir();
+		dirFile = new File(serverStorePath + "replica_2");
+		if (!dirFile.exists())
+			dirFile.mkdir();
 	}
 
 	public static void main(String[] args) {
@@ -185,11 +195,19 @@ public class KVServer extends Thread implements IKVServer {
 //		}
 //	}
 
+	public File[] getCoordinatorFile() {
+		return new File(serverStorePath + "coordinator").listFiles();
+	}
+
+	public void cleanReplicaDirectory(int replica) {
+		for (File file : new File(serverStorePath + "replica_" + replica).listFiles()) file.delete();
+	}
+
 	public ArrayList<File> transferKeyRange(String krFrom, String krTo) {
 		ArrayList<File> transferFile = new ArrayList<>();
 		try {
 			MessageDigest messageDigest = MessageDigest.getInstance("MD5");
-			for (File file : new File(storeDir).listFiles()) {
+			for (File file : new File(serverStorePath + "coordinator").listFiles()) {
 				messageDigest.update(file.getName().getBytes());
 				String keyHash = Hex.encodeHexString(messageDigest.digest());
 				if (krFrom.equals(krTo) || (krFrom.compareTo(krTo) < 0 && keyHash.compareTo(krFrom) > 0 && keyHash.compareTo(krTo) <= 0)
@@ -253,7 +271,7 @@ public class KVServer extends Thread implements IKVServer {
 	@Override
     public String getKV(String key) throws Exception {
 		logger.info("getting " + key + "...");
-		File kvFile = new File(serverStorePath + key);
+		File kvFile = new File(serverStorePath + "coordinator/" + key);
 		if (!kvFile.exists()) {
 			logger.error(key + " Does Not Exist!");
 			throw new Exception("File Does Not Exist!");
@@ -267,7 +285,59 @@ public class KVServer extends Thread implements IKVServer {
 
 	@Override
     public void putKV(String key, String value) throws Exception {
-		File kvFile = new File(serverStorePath + key);
+		File kvFile = new File(serverStorePath + "coordinator/" + key);
+		if (value.equals("null")) {
+			if (kvFile.exists()) {
+				kvFile.delete();
+				logger.info("Deleted " + key);
+			} else {
+				logger.error(key + " Does Not Exist!");
+				throw new Exception("File Does Not Exist!");
+			}
+		} else {
+			if (kvFile.exists()) {
+				kvFile.delete();
+				logger.info("Updating " + key + " Corresponding: " + value + " ...");
+			} else
+				logger.info("Inserting " + key + " Corresponding: " + value + " ...");
+			try {
+				kvFile.createNewFile();
+				FileWriter kvFileWriter = new FileWriter(kvFile);
+				kvFileWriter.write(value);
+				kvFileWriter.close();
+				logger.info("Done!");
+			} catch (Exception e) {
+				logger.error("Error Creating/Writing File!");
+				throw new Exception("Error Creating/Writing File!");
+			}
+		}
+		String[] replica = new String[2];
+		String[] server = metadata.split(";");
+		for (int i = 0; i < server.length; ++i) {
+			if (!server[i].split(",")[2].equals("127.0.0.1:" + serverPort)) continue;
+			if (server.length > 1) replica[0] = (i+1 == server.length) ? server[0].split(",")[2] : server[i+1].split(",")[2];
+			if (server.length <= 2) break;
+			if (i+1 == server.length) replica[1] = server[1].split(",")[2];
+			else if (i+2 == server.length) replica[1] = server[0].split(",")[2];
+			else replica[1] = server[i+2].split(",")[2];
+			break;
+		}
+		try {
+			if (server.length == 1) return;
+			Socket replicaSock = new Socket(replica[0].split(":")[0], Integer.parseInt(replica[0].split(":")[1]));
+			writeOutputStream(replicaSock, new TextMessage("put_replica_1 " + key + " " + value));
+			readInputStream(replicaSock);
+			replicaSock.close();
+			if (server.length == 2) return;
+			replicaSock = new Socket(replica[1].split(":")[0], Integer.parseInt(replica[1].split(":")[1]));
+			writeOutputStream(replicaSock, new TextMessage("put_replica_2 " + key + " " + value));
+			readInputStream(replicaSock);
+			replicaSock.close();
+		} catch (IOException | NumberFormatException ignored) {}
+	}
+
+	public void putKV(String key, String value, String replica) throws Exception {
+		File kvFile = new File(serverStorePath + replica + "/" + key);
 		if (value.equals("null")) {
 			if (kvFile.exists()) {
 				kvFile.delete();

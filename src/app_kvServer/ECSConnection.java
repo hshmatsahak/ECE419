@@ -4,6 +4,7 @@ import java.net.Socket;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.ArrayList;
 import java.io.File;
 import java.util.Scanner;
@@ -79,11 +80,53 @@ class ECSConnection implements Runnable {
             transferFile.forEach(file -> file.delete());
             transferFile.clear();
             kvServer.metadata = metadata;
-            metadata = "";
             kvServer.keyRange[0] = keyRange[0];
             keyRange[0] = "";
             kvServer.keyRange[1] = keyRange[1];
             keyRange[1] = "";
+            String[] replica = new String[2];
+            String[] server = metadata.split(";");
+            for (int i = 0; i < server.length; ++i) {
+                if (!server[i].split(",")[2].equals("127.0.0.1:" + serverPort)) continue;
+                if (server.length > 1) replica[0] = (i+1 == server.length) ? server[0].split(",")[2] : server[i+1].split(",")[2];
+                if (server.length <= 2) break;
+                if (i+1 == server.length) replica[1] = server[1].split(",")[2];
+                else if (i+2 == server.length) replica[1] = server[0].split(",")[2];
+                else replica[1] = server[i+2].split(",")[2];
+                break;
+            }
+            try {
+                if (server.length == 1) {
+                    kvServer.write_lock = false;
+                    return new TextMessage("success");
+                }
+                Socket replicaSock = new Socket(replica[0].split(":")[0], Integer.parseInt(replica[0].split(":")[1]));
+                writeOutputStream(new TextMessage("transfer_replica_1"), replicaSock.getOutputStream());
+                readInputStream(replicaSock.getInputStream());
+                File[] coordinatorFile = kvServer.getCoordinatorFile();
+                for (File file : coordinatorFile) {
+                    Scanner fileScanner = new Scanner(file);
+                    writeOutputStream(new TextMessage("transfer_replica_1 " + file.getName() + " " + fileScanner.nextLine()), replicaSock.getOutputStream());
+                    fileScanner.close();
+                    readInputStream(replicaSock.getInputStream());
+                }
+                replicaSock.close();
+                if (server.length == 2) {
+                    kvServer.write_lock = false;
+                    return new TextMessage("success");
+                }
+                replicaSock = new Socket(replica[1].split(":")[0], Integer.parseInt(replica[1].split(":")[1]));
+                writeOutputStream(new TextMessage("transfer_replica_2"), replicaSock.getOutputStream());
+                readInputStream(replicaSock.getInputStream());
+                for (File file : coordinatorFile) {
+                    Scanner fileScanner = new Scanner(file);
+                    writeOutputStream(new TextMessage("transfer_replica_2 " + file.getName() + " " + fileScanner.nextLine()), replicaSock.getOutputStream());
+                    fileScanner.close();
+                    readInputStream(replicaSock.getInputStream());
+                }
+                replicaSock.close();
+            } catch (IOException | NumberFormatException ignored) {}
+            metadata = "";
             kvServer.write_lock = false;
             return new TextMessage("success");
         case "remove":
