@@ -203,6 +203,17 @@ public class KVServer extends Thread implements IKVServer {
 		for (File file : new File(serverStorePath + "replica_" + replica).listFiles()) file.delete();
 	}
 
+	public void cleanDirectory() {
+		for (File file : getCoordinatorFile()) file.delete();
+		cleanReplicaDirectory(1);
+		cleanReplicaDirectory(2);
+	}
+
+	public void transferReplicaToCoordinator(int replica) {
+		for (File file : new File(serverStorePath + "replica_" + replica).listFiles())
+			file.renameTo(new File(serverStorePath + "coordinator/" + file.getName()));
+	}
+
 	public ArrayList<File> transferKeyRange(String krFrom, String krTo) {
 		ArrayList<File> transferFile = new ArrayList<>();
 		try {

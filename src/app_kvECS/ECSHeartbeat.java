@@ -25,8 +25,11 @@ class ECSHeartbeat implements Runnable {
                         writeOutputStream(entry.getValue(), "heartbeat");
                         readInputStream(entry.getValue());
                     } catch (IOException ioe) {
-                        System.out.println(entry.getKey()); // TODO: transfer
+                        try {
+                            ecs.shutdownNode(entry.getKey().split(":")[0], Integer.parseInt(entry.getKey().split(":")[1]));
+                        } catch (NumberFormatException ignored) {}
                         ecs.heartbeat.remove(entry.getKey(), entry.getValue());
+                        break;
                     }
                 }
             }

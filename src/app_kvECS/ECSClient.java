@@ -225,14 +225,14 @@ public class ECSClient implements IECSClient {
                 continue;
             int index = nodeRing.indexOf(node);
             nodeRing.remove(index);
+            occupiedNode.remove(node.getNodeName());
             if (nodeRing.isEmpty())
-                awaitNode("remove", "");
+                awaitNode("shutdown", "");
             else {
                 ECSNode updateNode = nodeRing.get(index == nodeRing.size() ? 0 : index);
                 updateNode.setPredecessorHash(node.getNodeHashRange()[0]);
-                awaitNode("remove", updateNode.getNodeSock().getLocalAddress().getHostAddress() + ":" + updateNode.getServerPort());
+                awaitNode("shutdown", updateNode.getNodeSock().getLocalAddress().getHostAddress() + ":" + updateNode.getServerPort());
             }
-            occupiedNode.remove(node.getNodeName());
             setAvailableNodesMetadata();
             break;
         }
