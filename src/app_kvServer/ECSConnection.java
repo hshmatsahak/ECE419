@@ -230,7 +230,7 @@ class ECSConnection implements Runnable {
             return new TextMessage("success");
         case "shutdown_success":
             replica = new String[2];
-            server = metadata.split(";");
+            server = kvServer.metadata.split(";");
             for (int i = 0; i < server.length; ++i) {
                 if (server[i].isEmpty()) break;
                 if (!server[i].split(",")[2].equals("127.0.0.1:" + serverPort)) continue;
