@@ -401,7 +401,7 @@ public class KVServer extends Thread implements IKVServer {
 		while (online) {
 			try {
 				Socket clientSocket = serverSocket.accept();
-				ClientConnection clientConnection = new ClientConnection(clientSocket);
+				ClientConnection clientConnection = new ClientConnection(clientSocket, ecsAddr, ecsPort);
 				clientConnection.addServer(this);
 				new Thread(clientConnection).start();
 			} catch (IOException e) {

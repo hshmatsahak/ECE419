@@ -17,6 +17,8 @@ class ClientConnection implements Runnable {
 
     private static final Logger logger = Logger.getRootLogger();
     private final Socket clientSocket;
+    private String ecsAddr;
+    private int ecsPort;
     private KVServer clientServer;
     private InputStream inputStream;
     private OutputStream outputStream;
@@ -26,8 +28,10 @@ class ClientConnection implements Runnable {
     private static final int BUFFER_SIZE = 1024;
     private static final int DROP_SIZE = 128 * BUFFER_SIZE;
 
-    public ClientConnection(Socket client) {
+    public ClientConnection(Socket client, String addr, int port) {
         clientSocket = client;
+        ecsAddr = addr;
+        ecsPort = port;
     }
 
     public void addServer(KVServer server) {
@@ -125,9 +129,54 @@ class ClientConnection implements Runnable {
         return new TextMessage(byteMessage);
     }
 
+    private TextMessage readInputStream(Socket sock) throws IOException {
+        byte read = (byte) sock.getInputStream().read();
+        boolean drop = false;
+        int i = 0;
+        byte[] byteMsg = null;
+        byte[] byteMessage = null;
+        byte[] byteBuffer = new byte[BUFFER_SIZE];
+        while (read != -1 && read != 0x0A && !drop) {
+            if (i == BUFFER_SIZE) {
+                if (byteMsg == null) {
+                    byteMessage = new byte[BUFFER_SIZE];
+                    System.arraycopy(byteBuffer, 0, byteMessage, 0, BUFFER_SIZE);
+                } else {
+                    byteMessage = new byte[byteMsg.length + BUFFER_SIZE];
+                    System.arraycopy(byteMsg, 0, byteMessage, 0, byteMsg.length);
+                    System.arraycopy(byteBuffer, 0, byteMessage, byteMsg.length, BUFFER_SIZE);
+                }
+                byteMsg = byteMessage;
+                byteBuffer = new byte[BUFFER_SIZE];
+                i = 0;
+            }
+            byteBuffer[i++] = read;
+            if (byteMsg != null && byteMessage.length + i == DROP_SIZE)
+                drop = true;
+            read = (byte) sock.getInputStream().read();
+        }
+        if (byteMsg == null) {
+            byteMessage = new byte[i];
+            System.arraycopy(byteBuffer, 0, byteMessage, 0, i);
+        } else {
+            byteMessage = new byte[byteMsg.length + i];
+            System.arraycopy(byteMsg, 0, byteMessage, 0, byteMsg.length);
+            System.arraycopy(byteBuffer, 0, byteMessage, byteMsg.length, i);
+        }
+        return new TextMessage(byteMessage);
+    }
+
     private TextMessage handleTextMsg(TextMessage msg) {
         String[] token = msg.getTextMessage().split("\\s+");
-        if (token[0].equals("put") && token.length > 2) {
+        if (token[0].equals("signup") || token[0].equals("login")) {
+            try {
+                Socket ecsSock = new Socket(ecsAddr, ecsPort);
+                writeOutputStream(ecsSock, msg);
+                return readInputStream(ecsSock);
+            } catch (IOException ignored) {
+                return new TextMessage("failed");
+            }
+        } else if (token[0].equals("put") && token.length > 2) {
             if (clientServer.stopped)
                 return new TextMessage("SERVER_STOPPED");
             if (clientServer.write_lock)
@@ -226,6 +275,12 @@ class ClientConnection implements Runnable {
         byte[] byteMsg = msg.getByteMessage();
         outputStream.write(byteMsg, 0, byteMsg.length);
         outputStream.flush();
+    }
+
+    private void writeOutputStream(Socket sock, TextMessage msg) throws IOException {
+        byte[] byteMsg = msg.getByteMessage();
+        sock.getOutputStream().write(byteMsg, 0, byteMsg.length);
+        sock.getOutputStream().flush();
     }
 
 //    private Message handleMsg(Message msg) {

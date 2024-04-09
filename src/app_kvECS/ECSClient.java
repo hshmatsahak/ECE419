@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
 import java.io.IOException;
 import java.util.stream.IntStream;
 import java.net.Socket;
+import java.io.File;
 
 import ecs.IECSNode;
 import ecs.ECSNode;
@@ -52,6 +53,10 @@ public class ECSClient implements IECSClient {
         nodeRing = new ArrayList<>();
         occupiedNode = new HashMap<>();
         heartbeat = new HashMap<>();
+        try {
+            File login = new File("login");
+            login.createNewFile();
+        } catch (Exception ignored) {}
     }
 
     public void insertNode(ECSNode node) {

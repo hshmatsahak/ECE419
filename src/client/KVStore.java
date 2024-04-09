@@ -68,6 +68,16 @@ public class KVStore implements KVCommInterface {
 		} catch (IOException ignored) {}
 	}
 
+	public String signup(String uname, String pwd) throws Exception {
+		writeOutputStream(new TextMessage("signup " + uname + " " + pwd));
+		return readInputStream().getTextMessage();
+	}
+
+	public String login(String uname, String pwd) throws Exception {
+		writeOutputStream(new TextMessage("login " + uname + " " + pwd));
+		return readInputStream().getTextMessage();
+	}
+
 	boolean krSuccess(String key, String krFrom, String krTo) {
 		try {
 			MessageDigest messageDigest = MessageDigest.getInstance("MD5");

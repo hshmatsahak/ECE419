@@ -23,6 +23,7 @@ public class KVClient implements IKVClient {
     private String serverAddr;
     private int serverPort;
     private KVStore kvStore;
+    private String uname = "";
 
     public static void main(String[] args) {
         try {
@@ -81,6 +82,57 @@ public class KVClient implements IKVClient {
                 System.out.print(PROMPT + "Disconnecting... ");
                 disconnect();
                 System.out.println("Done!");
+            }
+            break;
+        case "signup":
+            if (token.length != 3) {
+                perror("Invalid Argument Count");
+                System.out.println(PROMPT + "signup <uname> <pwd>");
+            } else if (kvStore == null || !kvStore.isConnected()) {
+                perror("Invalid Connection");
+                System.out.println(PROMPT + "connect <addr> <port>");
+            } else {
+                System.out.println(PROMPT + "Signing Up...");
+                try {
+                    if (kvStore.signup(token[1], token[2]).equals("success")) {
+                        uname = token[1];
+                        System.out.println(PROMPT + "Done!");
+                    } else
+                        System.out.println(PROMPT + "Invalid <uname>!");
+                } catch (Exception ignored) {}
+            }
+            break;
+        case "login":
+            if (token.length != 3) {
+                perror("Invalid Argument Count");
+                System.out.println(PROMPT + "login <uname> <pwd>");
+            } else if (kvStore == null || !kvStore.isConnected()) {
+                perror("Invalid Connection");
+                System.out.println(PROMPT + "connect <addr> <port>");
+            } else {
+                if (!uname.isEmpty())
+                    System.out.println(PROMPT + "Logging Out Existining User...\n" + PROMPT + "Done!");
+                System.out.println(PROMPT + "Logging In...");
+                try {
+                    if (kvStore.login(token[1], token[2]).equals("success")) {
+                        uname = token[1];
+                        System.out.println(PROMPT + "Done!");
+                    } else
+                        System.out.println(PROMPT + "Invalid <uname> or <pwd>!");
+                } catch (Exception ignored) {}
+            }
+            break;
+        case "logout":
+            if (token.length != 1)
+                perror("Too Many Arguments");
+            else {
+                System.out.println(PROMPT + "Logging Out...");
+                if (uname.isEmpty())
+                    System.out.println(PROMPT + "No Existing Login");
+                else {
+                    uname = "";
+                    System.out.println(PROMPT + "Done!");
+                }
             }
             break;
         case "put":

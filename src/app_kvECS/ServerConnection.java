@@ -5,6 +5,10 @@ import java.net.Socket;
 import java.io.IOException;
 import java.net.BindException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
+import java.io.FileWriter;
 
 import ecs.ECSNode;
 import shared.messages.TextMessage;
@@ -26,11 +30,35 @@ class ServerConnection implements Runnable {
             try {
                 Socket serverSocket = ecsServerSocket.accept();
                 String[] serverMsg = readInputStream(serverSocket).getTextMessage().split("\\s+");
-                if (serverMsg.length != 1) {
+                if (serverMsg[0].equals("heartbeat")) {
                     serverSocket.setSoTimeout(1*1000);
                     synchronized (ecsClient.heartbeat) {ecsClient.heartbeat.put(serverMsg[1], serverSocket);}
                     // ecsClient.shutdownNode(serverSocket.getInetAddress().getHostAddress(), Integer.parseInt(serverMsg[1]));
                     // writeOutputStream(serverSocket, new TextMessage("success"));
+                } else if (serverMsg[0].equals("signup")) {
+                    boolean valid = true;
+                    for (String line : Files.readAllLines(Paths.get("login")))
+                        if (line.split("\\s+")[0].equals(serverMsg[1])) {
+                            valid = false;
+                            break;
+                        }
+                    if (valid) {
+                        FileWriter login = new FileWriter("login", true);
+                        login.write(serverMsg[1] + " " + serverMsg[2] + "\n");
+                        login.close();
+                        writeOutputStream(serverSocket, new TextMessage("success"));
+                    } else
+                        writeOutputStream(serverSocket, new TextMessage("failed"));
+                } else if (serverMsg[0].equals("login")) {
+                    boolean valid = false;
+                    for (String line : Files.readAllLines(Paths.get("login")))
+                        if (line.equals(serverMsg[1] + " " + serverMsg[2])) {
+                            valid = true;
+                            writeOutputStream(serverSocket, new TextMessage("success"));
+                            break;
+                        }
+                    if (!valid)
+                        writeOutputStream(serverSocket, new TextMessage("failed"));
                 } else
                     ecsClient.insertNode(new ECSNode(serverSocket, Integer.parseInt(serverMsg[0])));
             } catch (NumberFormatException | IOException ignored) {}
