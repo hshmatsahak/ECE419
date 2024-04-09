@@ -126,6 +126,27 @@ public class KVStore implements KVCommInterface {
 //		return (Message) objectInputStream.readObject();
 	}
 
+	public Message put(String uname, String key, String value) throws Exception {
+		writeOutputStream(new TextMessage("put " + uname + " " + key + " " + value));
+		String[] token = readInputStream().getTextMessage().split("\\s+");
+		if (token[0].equals("SERVER_STOPPED") || token[0].equals("SERVER_WRITE_LOCK"))
+			return new Message(StatusType.valueOf(token[0]), "", "");
+		if (token[0].equals("SERVER_NOT_RESPONSIBLE")) {
+			metadata = token[1];
+			updateConnection(key);
+			return put(uname, key, value);
+		}
+		StringBuilder val = new StringBuilder();
+		for (int i=2; i<token.length; ++i) {
+			val.append(token[i]);
+			if (i != token.length - 1)
+				val.append(" ");
+		}
+		return new Message(StatusType.valueOf(token[0]), token[1], val.toString());
+//		objectOutputStream.writeObject(new Message(StatusType.PUT, key, value));
+//		return (Message) objectInputStream.readObject();
+	}
+
 	@Override
 	public Message get(String key) throws Exception {
 		writeOutputStream(new TextMessage("get " + key));
@@ -136,6 +157,27 @@ public class KVStore implements KVCommInterface {
 			metadata = token[1];
 			updateConnection(key);
 			return get(key);
+		}
+		StringBuilder val = new StringBuilder();
+		for (int i=2; i<token.length; ++i) {
+			val.append(token[i]);
+			if (i != token.length - 1)
+				val.append(" ");
+		}
+		return new Message(StatusType.valueOf(token[0]), token[1], val.toString());
+//		objectOutputStream.writeObject(new Message(StatusType.GET, key, ""));
+//		return (Message) objectInputStream.readObject();
+	}
+
+	public Message get(String uname, String key) throws Exception {
+		writeOutputStream(new TextMessage("get " + uname + " " + key));
+		String[] token = readInputStream().getTextMessage().split("\\s+");
+		if (token[0].equals("SERVER_STOPPED"))
+			return new Message(StatusType.valueOf(token[0]), "", "");
+		if (token[0].equals("SERVER_NOT_RESPONSIBLE")) {
+			metadata = token[1];
+			updateConnection(key);
+			return get(uname, key);
 		}
 		StringBuilder val = new StringBuilder();
 		for (int i=2; i<token.length; ++i) {

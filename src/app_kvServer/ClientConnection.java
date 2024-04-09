@@ -176,34 +176,34 @@ class ClientConnection implements Runnable {
             } catch (IOException ignored) {
                 return new TextMessage("failed");
             }
-        } else if (token[0].equals("put") && token.length > 2) {
+        } else if (token[0].equals("put") && token.length > 3) {
             if (clientServer.stopped)
                 return new TextMessage("SERVER_STOPPED");
             if (clientServer.write_lock)
                 return new TextMessage("SERVER_WRITE_LOCK");
-            if (!clientServer.krSuccess(token[1].toString()))
+            if (!clientServer.krSuccess(token[2].toString()))
                 return new TextMessage("SERVER_NOT_RESPONSIBLE " + clientServer.metadata);
             StringBuilder val = new StringBuilder();
-            for (int i=2; i<token.length; ++i) {
+            for (int i=3; i<token.length; ++i) {
                 val.append(token[i]);
                 if (i != token.length - 1)
                     val.append(" ");
             }
-            boolean isUpdate = clientServer.inStorage(token[1]);
+            boolean isUpdate = clientServer.inStorage(token[2]);
             try {
-                clientServer.putKV(token[1], val.toString());
+                clientServer.put(token[1], token[2], val.toString());
                 if (val.toString().equals("null")) {
-                    return new TextMessage("DELETE_SUCCESS " + token[1]);
+                    return new TextMessage("DELETE_SUCCESS " + token[2]);
                 } else if (isUpdate) {
-                    return new TextMessage("PUT_UPDATE " + token[1] + " " + val);
+                    return new TextMessage("PUT_UPDATE " + token[2] + " " + val);
                 } else {
-                    return new TextMessage("PUT_SUCCESS " + token[1] + " " + val);
+                    return new TextMessage("PUT_SUCCESS " + token[2] + " " + val);
                 }
             } catch (Exception e) {
                 if (val.toString().equals("null")) {
-                    return new TextMessage("DELETE_ERROR " + token[1]);
+                    return new TextMessage("DELETE_ERROR " + token[2]);
                 } else {
-                    return new TextMessage("PUT_ERROR " + token[1] + " " + val);
+                    return new TextMessage("PUT_ERROR " + token[2] + " " + val);
                 }
             }
         } else if (token[0].equals("put_replica_1") || token[0].equals("put_replica_2")) {
@@ -223,16 +223,16 @@ class ClientConnection implements Runnable {
             } catch (Exception ignored) {
                 return new TextMessage("failed");
             }
-        } else if (token[0].equals("get") && token.length == 2) {
+        } else if (token[0].equals("get") && token.length == 3) {
             if (clientServer.stopped)
                 return new TextMessage("SERVER_STOPPED");
-            if (!clientServer.krSuccess(token[1].toString()))
+            if (!clientServer.krSuccess(token[2].toString()))
                 return new TextMessage("SERVER_NOT_RESPONSIBLE " + clientServer.metadata);
             try {
-                String val = clientServer.getKV(token[1]);
-                return new TextMessage("GET_SUCCESS " + token[1] + " " + val);
+                String val = clientServer.get(token[1], token[2]);
+                return new TextMessage("GET_SUCCESS " + token[2] + " " + val);
             } catch (Exception e) {
-                return new TextMessage("GET_ERROR " + token[1]);
+                return new TextMessage("GET_ERROR " + token[2]);
             }
         } else if (token[0].equals("keyrange") && token.length == 1) {
             return new TextMessage("KEYRANGE_SUCCESS " + clientServer.metadata);

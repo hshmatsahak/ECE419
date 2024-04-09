@@ -136,7 +136,9 @@ public class KVClient implements IKVClient {
             }
             break;
         case "put":
-            if (token.length == 1) {
+            if (uname.isEmpty())
+                perror("Not Logged In");
+            else if (token.length == 1) {
                 perror("Invalid Argument Count");
                 System.out.println(PROMPT + "put <key> <val>");
             } else if (kvStore == null || !kvStore.isConnected()) {
@@ -151,7 +153,7 @@ public class KVClient implements IKVClient {
                 if (token.length == 2) {
                     System.out.println("Deleting <key>: " + key + " ...");
                     try {
-                        Message kvMessage = kvStore.put(key, "null");
+                        Message kvMessage = kvStore.put(uname, key, "null");
                         if (kvMessage.getStatus() == StatusType.DELETE_ERROR)
                             perror("delete Error");
                         else if (kvMessage.getStatus() == StatusType.SERVER_STOPPED)
@@ -175,7 +177,7 @@ public class KVClient implements IKVClient {
                     }
                     System.out.println("Inserting...");
                     try {
-                        Message kvMessage = kvStore.put(key, val.toString());
+                        Message kvMessage = kvStore.put(uname, key, val.toString());
                         if (kvMessage.getStatus() == StatusType.PUT_ERROR)
                             perror("put Error");
                         else if (kvMessage.getStatus() == StatusType.SERVER_STOPPED)
@@ -195,7 +197,9 @@ public class KVClient implements IKVClient {
             }
             break;
         case "get":
-            if (token.length != 2) {
+            if (uname.isEmpty())
+                perror("Not Logged In");
+            else if (token.length != 2) {
                 perror("Invalid Argument Count");
                 System.out.println(PROMPT + "get <key>");
             } else if (kvStore == null || !kvStore.isConnected()) {
@@ -204,7 +208,7 @@ public class KVClient implements IKVClient {
             } else {
                 System.out.println("Retrieving <key>: " + token[1] + " ...");
                 try {
-                    Message kvMessage = kvStore.get(token[1]);
+                    Message kvMessage = kvStore.get(uname, token[1]);
                     if (kvMessage.getStatus() == StatusType.GET_ERROR)
                         System.out.println("key " + kvMessage.getKey() + " Does Not Exist!");
                     else if (kvMessage.getStatus() == StatusType.SERVER_STOPPED)
