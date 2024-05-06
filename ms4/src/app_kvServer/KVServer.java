@@ -1,0 +1,568 @@
+package app_kvServer;
+
+import java.net.ServerSocket;
+import java.util.concurrent.locks.ReentrantLock;
+import java.net.Socket;
+import java.io.File;
+import java.util.Scanner;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.net.BindException;
+import java.util.List;
+import java.util.ArrayList;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.io.InputStream;
+
+import org.apache.log4j.Logger;
+import org.apache.log4j.Level;
+import org.apache.commons.codec.binary.Hex;
+
+import shared.messages.TextMessage;
+
+import logger.LogSetup;
+
+public class KVServer extends Thread implements IKVServer {
+
+	private static final Logger logger = Logger.getRootLogger();
+	private static final String PROMPT = "KVServer> ";
+	private String ecsAddr;
+	private int ecsPort;
+	private int serverPort;
+	private String storeDir;
+	private String serverStorePath;
+	private boolean online;
+	private ServerSocket serverSocket;
+	final ReentrantLock serverLock = new ReentrantLock();
+	public String metadata = "";
+	public String[] keyRange = {"", ""};
+	boolean stopped = true;
+	boolean write_lock = false;
+	private static final int BUFFER_SIZE = 1024;
+	private static final int DROP_SIZE = 128 * BUFFER_SIZE;
+
+	public KVServer(String bootstrapAddr, int bootstrapPort, int port, String dir) {
+		ecsAddr = bootstrapAddr;
+		ecsPort = bootstrapPort;
+		serverPort = port;
+		storeDir = dir + port;
+		File dirFile = new File(storeDir);
+		if (!dirFile.exists())
+			dirFile.mkdir();
+		serverStorePath = storeDir + "/";
+		dirFile = new File(serverStorePath + "coordinator");
+		if (!dirFile.exists())
+			dirFile.mkdir();
+		dirFile = new File(serverStorePath + "replica_1");
+		if (!dirFile.exists())
+			dirFile.mkdir();
+		dirFile = new File(serverStorePath + "replica_2");
+		if (!dirFile.exists())
+			dirFile.mkdir();
+	}
+
+	public static void main(String[] args) {
+		KVServer server = handleArgs(args);
+		// Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+		// 	try {
+		// 		Socket shutdownSock = new Socket(server.ecsAddr, server.ecsPort);
+		// 		writeOutputStream(shutdownSock, new TextMessage("shutdown " + server.serverPort));
+		// 		readInputStream(shutdownSock);
+		// 	} catch (IOException ignored) {}
+		// }));
+		server.start();
+	}
+
+	private static KVServer handleArgs(String[] args) {
+		if (args.length == 0)
+			pexit("No Arguments");
+		String bootstrapAddr = null;
+		int bootstrapPort = -1;
+		int port = -1;
+		String storeDir = null;
+		String logDir = "logs";
+		Level logLevel = Level.ALL;
+		for (int i=0; i<args.length; ++i) {
+			switch (args[i]) {
+			case "-b":
+				if (bootstrapAddr != null || bootstrapPort != -1)
+					pexit("Ambiguous ECS Bootstrap Arguments");
+				if (++i == args.length)
+					pexit("No ECS Bootstrap Argument");
+				if (args[i].split(":").length != 2)
+					pexit("-b <ecsAddr>:<ecsPort>");
+				try {
+					bootstrapPort = Integer.parseInt(args[i].split(":")[1]);
+				} catch (NumberFormatException nfe) {
+					pexit("Invalid ECS Port");
+				}
+				bootstrapAddr = args[i].split(":")[0];
+				break;
+			case "-p":
+				if (port != -1)
+					pexit("Ambiguous Port Arguments");
+				if (++i == args.length)
+					pexit("No Port Argument");
+				try {
+					port = Integer.parseInt(args[i]);
+				} catch (NumberFormatException nfe) {
+					pexit("Invalid Port Argument");
+				}
+				break;
+			case "-a":
+				if (++i == args.length)
+					pexit("No Listen Address Argument");
+				pexit("Invalid Listen Address Argument");
+				break;
+			case "-d":
+				if (storeDir != null)
+					pexit("Ambiguous Storage Path Arguments");
+				if (++i == args.length)
+					pexit("No Storage Path Argument");
+				storeDir = args[i];
+				break;
+			case "-l":
+				if (!logDir.equals("logs"))
+					pexit("Ambiguous Log Directory Argument");
+				if (++i == args.length)
+					pexit("No Log Directory Argument");
+				logDir = args[i];
+				break;
+			case "-ll":
+				if (!logLevel.toString().equals("ALL"))
+					pexit("Ambiguous Log Level Argument");
+				if (++i == args.length)
+					pexit("No Log Level Argument");
+				if (args[i].equals("DEBUG"))
+					logLevel = Level.DEBUG;
+				else if (args[i].equals("INFO"))
+					logLevel = Level.INFO;
+				else if (args[i].equals("WARN"))
+					logLevel = Level.WARN;
+				else if (args[i].equals("ERROR"))
+					logLevel = Level.ERROR;
+				else if (args[i].equals("FATAL"))
+					logLevel = Level.FATAL;
+				else if (args[i].equals("OFF"))
+					logLevel = Level.OFF;
+				else
+					pexit("Invalid Log Level Argument");
+				break;
+			case "-h":
+				System.out.println("-p <port> -a <addr> -d <store dir> -l <log dir> -ll <log level>");
+				System.exit(0);
+			default:
+				pexit("Invalid Argument: " + args[i]);
+			}
+		}
+		if (bootstrapAddr == null || bootstrapPort == -1 || port == -1 || storeDir == null)
+			pexit("Too Few Arguments");
+		try {
+			new LogSetup(logDir + "/server.log", logLevel);
+		} catch (IOException e) {
+			e.printStackTrace();
+			pexit("Initialize Server Log");
+		}
+		return new KVServer(bootstrapAddr, bootstrapPort, port, storeDir);
+	}
+
+	/**
+	 * Start KV Server at given port
+	 * @param port given port for storage server to operate
+	 * @param cacheSize specifies how many key-value pairs the server is allowed
+	 *           to keep in-memory
+	 * @param strategy specifies the cache replacement strategy in case the cache
+	 *           is full and there is a GET- or PUT-request on a key that is
+	 *           currently not contained in the cache. Options are "FIFO", "LRU",
+	 *           and "LFU".
+	 */
+	public KVServer(int port, int cacheSize, String strategy) {
+		serverPort = port;
+	}
+
+//	public static void main(String[] args) {
+//		if (args.length != 1) {
+//			System.out.println("KVServer> Error: Invalid Argument Count!");
+//			System.exit(1);
+//		} else {
+//			try {
+//				int serverPort = Integer.parseInt(args[0]);
+//				new KVServer(serverPort, -1, CacheStrategy.None.toString()).start();
+//			} catch (NumberFormatException ioe) {
+//				System.out.println("KVServer> Error: Invalid Server Port!");
+//				System.exit(1);
+//			}
+//		}
+//	}
+
+	public File[] getCoordinatorFile() {
+		return new File(serverStorePath + "coordinator").listFiles();
+	}
+
+	public void cleanReplicaDirectory(int replica) {
+		for (File file : new File(serverStorePath + "replica_" + replica).listFiles()) file.delete();
+	}
+
+	public void cleanDirectory() {
+		for (File file : getCoordinatorFile()) file.delete();
+		cleanReplicaDirectory(1);
+		cleanReplicaDirectory(2);
+	}
+
+	public void transferReplicaToCoordinator(int replica) {
+		for (File file : new File(serverStorePath + "replica_" + replica).listFiles())
+			file.renameTo(new File(serverStorePath + "coordinator/" + file.getName()));
+	}
+
+	public ArrayList<File> transferKeyRange(String krFrom, String krTo) {
+		ArrayList<File> transferFile = new ArrayList<>();
+		try {
+			MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+			for (File file : new File(serverStorePath + "coordinator").listFiles()) {
+				messageDigest.update(file.getName().getBytes());
+				String keyHash = Hex.encodeHexString(messageDigest.digest());
+				if (krFrom.equals(krTo) || (krFrom.compareTo(krTo) < 0 && keyHash.compareTo(krFrom) > 0 && keyHash.compareTo(krTo) <= 0)
+						|| (krFrom.compareTo(krTo) > 0 && (keyHash.compareTo(krFrom) > 0 || keyHash.compareTo(krTo) <= 0))) {
+					transferFile.add(file);
+				}
+			}
+		} catch (NoSuchAlgorithmException ignored) {}
+		return transferFile;
+	}
+
+	boolean krSuccess(String key) {
+		if (keyRange[0].isEmpty())
+			return false;
+		try {
+			MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+			messageDigest.update(key.getBytes());
+			String keyHash = Hex.encodeHexString(messageDigest.digest());
+			return (keyRange[0].equals(keyRange[1]) || (keyRange[0].compareTo(keyRange[1]) < 0 && keyHash.compareTo(keyRange[0]) > 0 && keyHash.compareTo(keyRange[1]) <= 0)
+				|| (keyRange[0].compareTo(keyRange[1]) > 0 && (keyHash.compareTo(keyRange[0]) > 0 || keyHash.compareTo(keyRange[1]) <= 0))) ? true : false;
+		} catch (NoSuchAlgorithmException ignored) {
+			return false;
+		}
+	}
+
+	@Override
+	public int getPort(){
+		// TODO Auto-generated method stub
+		return -1;
+	}
+
+	@Override
+    public String getHostname(){
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+    public CacheStrategy getCacheStrategy(){
+		// TODO Auto-generated method stub
+		return IKVServer.CacheStrategy.None;
+	}
+
+	@Override
+    public int getCacheSize(){
+		// TODO Auto-generated method stub
+		return -1;
+	}
+
+	@Override
+    public boolean inStorage(String key) {
+		File kvFile = new File(serverStorePath + key);
+		return kvFile.exists();
+	}
+
+	@Override
+    public boolean inCache(String key){
+		return false;
+	}
+
+	@Override
+    public String getKV(String key) throws Exception {
+		logger.info("getting " + key + "...");
+		File kvFile = new File(serverStorePath + "coordinator/" + key);
+		if (!kvFile.exists()) {
+			logger.error(key + " Does Not Exist!");
+			throw new Exception("File Does Not Exist!");
+		}
+		Scanner kvFileScanner = new Scanner(kvFile);
+		String val = kvFileScanner.nextLine();
+		kvFileScanner.close();
+		logger.info("Corresponding: " + val);
+		return val;
+	}
+
+	public String get(String uname, String key) throws Exception {
+		logger.info("getting " + key + "...");
+		File kvFile = new File(serverStorePath + "coordinator/" + key);
+		if (!kvFile.exists()) {
+			logger.error(key + " Does Not Exist!");
+			throw new Exception("File Does Not Exist!");
+		}
+		Scanner kvFileScanner = new Scanner(kvFile);
+		String[] valFile = kvFileScanner.nextLine().split("\\s+");
+		kvFileScanner.close();
+		if (!valFile[0].equals(uname))
+			throw new Exception();
+		StringBuilder valBuilder = new StringBuilder();
+		for (int i=1; i<valFile.length; ++i) {
+			valBuilder.append(valFile[i]);
+			if (i != valFile.length - 1)
+				valBuilder.append(" ");
+		}
+		logger.info("Corresponding: " + valBuilder.toString());
+		return valBuilder.toString();
+	}
+
+	@Override
+    public void putKV(String key, String value) throws Exception {
+		File kvFile = new File(serverStorePath + "coordinator/" + key);
+		if (value.equals("null")) {
+			if (kvFile.exists()) {
+				kvFile.delete();
+				logger.info("Deleted " + key);
+			} else {
+				logger.error(key + " Does Not Exist!");
+				throw new Exception("File Does Not Exist!");
+			}
+		} else {
+			if (kvFile.exists()) {
+				kvFile.delete();
+				logger.info("Updating " + key + " Corresponding: " + value + " ...");
+			} else
+				logger.info("Inserting " + key + " Corresponding: " + value + " ...");
+			try {
+				kvFile.createNewFile();
+				FileWriter kvFileWriter = new FileWriter(kvFile);
+				kvFileWriter.write(value);
+				kvFileWriter.close();
+				logger.info("Done!");
+			} catch (Exception e) {
+				logger.error("Error Creating/Writing File!");
+				throw new Exception("Error Creating/Writing File!");
+			}
+		}
+		String[] replica = new String[2];
+		String[] server = metadata.split(";");
+		for (int i = 0; i < server.length; ++i) {
+			if (!server[i].split(",")[2].equals("127.0.0.1:" + serverPort)) continue;
+			if (server.length > 1) replica[0] = (i+1 == server.length) ? server[0].split(",")[2] : server[i+1].split(",")[2];
+			if (server.length <= 2) break;
+			if (i+1 == server.length) replica[1] = server[1].split(",")[2];
+			else if (i+2 == server.length) replica[1] = server[0].split(",")[2];
+			else replica[1] = server[i+2].split(",")[2];
+			break;
+		}
+		try {
+			if (server.length == 1) return;
+			Socket replicaSock = new Socket(replica[0].split(":")[0], Integer.parseInt(replica[0].split(":")[1]));
+			writeOutputStream(replicaSock, new TextMessage("put_replica_1 " + key + " " + value));
+			readInputStream(replicaSock);
+			replicaSock.close();
+			if (server.length == 2) return;
+			replicaSock = new Socket(replica[1].split(":")[0], Integer.parseInt(replica[1].split(":")[1]));
+			writeOutputStream(replicaSock, new TextMessage("put_replica_2 " + key + " " + value));
+			readInputStream(replicaSock);
+			replicaSock.close();
+		} catch (IOException | NumberFormatException ignored) {}
+	}
+
+	public void put(String uname, String key, String value) throws Exception {
+		File kvFile = new File(serverStorePath + "coordinator/" + key);
+		if (kvFile.exists()) {
+			Scanner valScanner = new Scanner(kvFile);
+			String[] valFile = valScanner.nextLine().split("\\s+");
+			valScanner.close();
+			if (!valFile[0].equals(uname))
+				throw new Exception();
+		}
+		if (value.equals("null")) {
+			if (kvFile.exists()) {
+				kvFile.delete();
+				logger.info("Deleted " + key);
+			} else {
+				logger.error(key + " Does Not Exist!");
+				throw new Exception("File Does Not Exist!");
+			}
+		} else {
+			if (kvFile.exists()) {
+				kvFile.delete();
+				logger.info("Updating " + key + " Corresponding: " + value + " ...");
+			} else
+				logger.info("Inserting " + key + " Corresponding: " + value + " ...");
+			try {
+				kvFile.createNewFile();
+				FileWriter kvFileWriter = new FileWriter(kvFile);
+				kvFileWriter.write(uname + " " + value);
+				kvFileWriter.close();
+				logger.info("Done!");
+			} catch (Exception e) {
+				logger.error("Error Creating/Writing File!");
+				throw new Exception("Error Creating/Writing File!");
+			}
+		}
+		String[] replica = new String[2];
+		String[] server = metadata.split(";");
+		for (int i = 0; i < server.length; ++i) {
+			if (!server[i].split(",")[2].equals("127.0.0.1:" + serverPort)) continue;
+			if (server.length > 1) replica[0] = (i+1 == server.length) ? server[0].split(",")[2] : server[i+1].split(",")[2];
+			if (server.length <= 2) break;
+			if (i+1 == server.length) replica[1] = server[1].split(",")[2];
+			else if (i+2 == server.length) replica[1] = server[0].split(",")[2];
+			else replica[1] = server[i+2].split(",")[2];
+			break;
+		}
+		try {
+			if (server.length == 1) return;
+			Socket replicaSock = new Socket(replica[0].split(":")[0], Integer.parseInt(replica[0].split(":")[1]));
+			writeOutputStream(replicaSock, new TextMessage("put_replica_1 " + key + " " + uname + " " + value));
+			readInputStream(replicaSock);
+			replicaSock.close();
+			if (server.length == 2) return;
+			replicaSock = new Socket(replica[1].split(":")[0], Integer.parseInt(replica[1].split(":")[1]));
+			writeOutputStream(replicaSock, new TextMessage("put_replica_2 " + key + " " + uname + " " + value));
+			readInputStream(replicaSock);
+			replicaSock.close();
+		} catch (IOException | NumberFormatException ignored) {}
+	}
+
+	public void putKV(String key, String value, String replica) throws Exception {
+		File kvFile = new File(serverStorePath + replica + "/" + key);
+		if (value.equals("null")) {
+			if (kvFile.exists()) {
+				kvFile.delete();
+				logger.info("Deleted " + key);
+			} else {
+				logger.error(key + " Does Not Exist!");
+				throw new Exception("File Does Not Exist!");
+			}
+		} else {
+			if (kvFile.exists()) {
+				kvFile.delete();
+				logger.info("Updating " + key + " Corresponding: " + value + " ...");
+			} else
+				logger.info("Inserting " + key + " Corresponding: " + value + " ...");
+			try {
+				kvFile.createNewFile();
+				FileWriter kvFileWriter = new FileWriter(kvFile);
+				kvFileWriter.write(value);
+				kvFileWriter.close();
+				logger.info("Done!");
+			} catch (Exception e) {
+				logger.error("Error Creating/Writing File!");
+				throw new Exception("Error Creating/Writing File!");
+			}
+		}
+	}
+
+	@Override
+    public void clearCache(){
+		// TODO Auto-generated method stub
+	}
+
+	@Override
+    public void clearStorage(){
+		// TODO Auto-generated method stub
+	}
+
+	@Override
+    public void run() {
+		try {
+			new Thread(new ECSConnection(this, new Socket(ecsAddr, ecsPort), serverPort)).start();
+		} catch (IOException ioe) {
+			pexit("ECS Connection");
+		}
+		online = initializeServer();
+		if (serverSocket == null) {
+			System.out.println("KVServer> Error: Connection Lost!");
+			return;
+		}
+		while (online) {
+			try {
+				Socket clientSocket = serverSocket.accept();
+				ClientConnection clientConnection = new ClientConnection(clientSocket, ecsAddr, ecsPort);
+				clientConnection.addServer(this);
+				new Thread(clientConnection).start();
+			} catch (IOException e) {
+//				logger.error("Error: New Client Connection Establishment Failed!");
+			}
+		}
+		System.out.println("Closing Server...");
+//		logger.info("Server Closed");
+	}
+
+	private boolean initializeServer() {
+		System.out.println("KVServer> Initializing Server...");
+		try {
+			serverSocket = new ServerSocket(serverPort);
+			System.out.println("KVServer> Server Online! Port " + serverPort);
+			return true;
+		} catch (IOException e) {
+			System.out.println("KVServer> Error: Socket Bind Failed!");
+			if (e instanceof BindException)
+				System.out.println("KVServer> Port " + serverPort + " Unavailable!");
+			return false;
+		}
+	}
+
+	@Override
+    public void kill(){
+		// TODO Auto-generated method stub
+	}
+
+	@Override
+    public void close(){
+		// TODO Auto-generated method stub
+	}
+
+	private static void pexit(String str) {
+		System.out.println(PROMPT + "Error: " + str + "!");
+		System.exit(1);
+	}
+
+	private static TextMessage readInputStream(Socket sock) throws IOException {
+		InputStream inputStream = sock.getInputStream();
+		byte read = (byte) inputStream.read();
+		boolean drop = false;
+		int i = 0;
+		byte[] byteMsg = null;
+		byte[] byteMessage = null;
+		byte[] byteBuffer = new byte[BUFFER_SIZE];
+		while (read != -1 && read != 0x0A && !drop) {
+			if (i == BUFFER_SIZE) {
+				if (byteMsg == null) {
+					byteMessage = new byte[BUFFER_SIZE];
+					System.arraycopy(byteBuffer, 0, byteMessage, 0, BUFFER_SIZE);
+				} else {
+					byteMessage = new byte[byteMsg.length + BUFFER_SIZE];
+					System.arraycopy(byteMsg, 0, byteMessage, 0, byteMsg.length);
+					System.arraycopy(byteBuffer, 0, byteMessage, byteMsg.length, BUFFER_SIZE);
+				}
+				byteMsg = byteMessage;
+				byteBuffer = new byte[BUFFER_SIZE];
+				i = 0;
+			}
+			byteBuffer[i++] = read;
+			if (byteMsg != null && byteMessage.length + i == DROP_SIZE)
+				drop = true;
+			read = (byte) inputStream.read();
+		}
+		if (byteMsg == null) {
+			byteMessage = new byte[i];
+			System.arraycopy(byteBuffer, 0, byteMessage, 0, i);
+		} else {
+			byteMessage = new byte[byteMsg.length + i];
+			System.arraycopy(byteMsg, 0, byteMessage, 0, byteMsg.length);
+			System.arraycopy(byteBuffer, 0, byteMessage, byteMsg.length, i);
+		}
+		return new TextMessage(byteMessage);
+	}
+
+	public static void writeOutputStream(Socket sock, TextMessage msg) throws IOException {
+        byte[] byteMsg = msg.getByteMessage();
+        sock.getOutputStream().write(byteMsg, 0, byteMsg.length);
+        sock.getOutputStream().flush();
+    }
+}
